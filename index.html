@@ -484,10 +484,9 @@ function onRegionChange() {
 
 // ══════════════════════════════════════════════
 // 주소 자동완성 (카카오 REST API)
-// REST API 키 - 재발급 후 아래 값 교체
-// ══════════════════════════════════════════════
-const KAK = '2685f0f12223e8cbd57ab1d9fd19e2c8';
+// ── 주소 검색: 행정안전부 도로명주소 API (무료, 키 불필요, file:// 완전 지원)
 let addrTimer = null, addrList = [], ddSelIdx = -1;
+const JUSO_KEY = 'devU01TX0FVVEgyMDI1MDMyNjEwMDUxMjExNTI4MDI=';
 
 function onAddrInput(val) {
   clearTimeout(addrTimer);
@@ -496,41 +495,28 @@ function onAddrInput(val) {
 }
 
 async function fetchAddr(q) {
-  const r = document.getElementById('fRegion').value;
+  const r      = document.getElementById('fRegion').value;
   const prefix = REGION_MAP[r] || '';
-  const full = prefix ? prefix + ' ' + q : q;
-  const dd = document.getElementById('addrDD');
+  const keyword = prefix ? prefix + ' ' + q : q;
+  const dd     = document.getElementById('addrDD');
   dd.innerHTML = '<div class="addr-dd-msg">검색 중...</div>';
   dd.style.display = 'block';
   try {
-    // 주소 검색
-    const res = await fetch(
-      'https://dapi.kakao.com/v2/local/search/address.json?query=' + encodeURIComponent(full) + '&size=10',
-      { headers: { Authorization: 'KakaoAK ' + KAK } }
-    );
+    const url = 'https://business.juso.go.kr/addrlink/addrLinkApi.do'
+      + '?currentPage=1&countPerPage=10'
+      + '&keyword='  + encodeURIComponent(keyword)
+      + '&confmKey=' + JUSO_KEY
+      + '&resultType=json';
+    const res  = await fetch(url);
     const data = await res.json();
-    let list = (data.documents || []).map(d => ({
-      road: (d.road_address && d.road_address.address_name) || d.address_name || '',
-      jibun: (d.address && d.address.address_name) || ''
+    const juso = (data.results && data.results.juso) || [];
+    addrList = juso.map(j => ({
+      road:  j.roadAddr  || '',
+      jibun: j.jibunAddr || ''
     })).filter(d => d.road);
-
-    if (!list.length) {
-      // 키워드 검색 fallback
-      const res2 = await fetch(
-        'https://dapi.kakao.com/v2/local/search/keyword.json?query=' + encodeURIComponent(full) + '&size=10',
-        { headers: { Authorization: 'KakaoAK ' + KAK } }
-      );
-      const data2 = await res2.json();
-      list = (data2.documents || []).map(d => ({
-        road: d.road_address_name || d.address_name || '',
-        jibun: d.address_name || ''
-      })).filter(d => d.road);
-    }
-
-    addrList = list;
-    renderDD(list);
+    renderDD(addrList);
   } catch(e) {
-    dd.innerHTML = '<div class="addr-dd-msg">검색 실패. 주소를 직접 입력해주세요.</div>';
+    dd.innerHTML = '<div class="addr-dd-msg">검색 오류. 주소를 직접 입력해주세요.</div>';
   }
 }
 
