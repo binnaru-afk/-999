@@ -140,6 +140,17 @@ code{background:var(--card);padding:1px 6px;border-radius:4px;color:var(--cyan);
 .ov-nav{display:flex;gap:10px;margin-top:12px;}
 .ov-nav button{background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:6px 16px;font-size:12px;cursor:pointer;font-family:inherit;}
 
+
+/* 커스텀 Confirm */
+.cfm-bg{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:10000;display:flex;align-items:center;justify-content:center;}
+.cfm-box{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:28px 32px;min-width:280px;text-align:center;box-shadow:0 16px 48px rgba(0,0,0,.6);}
+.cfm-msg{font-size:15px;font-weight:700;color:var(--text);margin-bottom:20px;}
+.cfm-btns{display:flex;gap:10px;justify-content:center;}
+.cfm-ok{background:var(--red);border:none;color:#fff;border-radius:8px;padding:10px 28px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;}
+.cfm-ok:hover{opacity:.85;}
+.cfm-cancel{background:var(--card);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:10px 28px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;}
+.cfm-cancel:hover{color:var(--text);}
+
 /* 토스트 */
 .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(70px);background:var(--green);color:#fff;padding:10px 22px;border-radius:8px;font-size:13px;font-weight:700;z-index:9999;transition:transform .25s;pointer-events:none;}
 .toast.show{transform:translateX(-50%) translateY(0);}
@@ -399,6 +410,18 @@ code{background:var(--card);padding:1px 6px;border-radius:4px;color:var(--cyan);
 
 </div>
 
+
+<!-- 커스텀 Confirm -->
+<div class="cfm-bg" id="cfmBg" style="display:none">
+  <div class="cfm-box">
+    <div class="cfm-msg" id="cfmMsg"></div>
+    <div class="cfm-btns">
+      <button class="cfm-ok" id="cfmOk"></button>
+      <button class="cfm-cancel" id="cfmCancel"></button>
+    </div>
+  </div>
+</div>
+
 <!-- 이미지 오버레이 -->
 <div class="overlay" id="overlay">
   <button class="overlay-close" onclick="closeOv()">✕</button>
@@ -466,20 +489,34 @@ const REGION_MAP = {
 };
 
 function onRegionChange() {
-  const r = document.getElementById('fRegion').value;
-  const kw = REGION_MAP[r] || '';
+  const r   = document.getElementById('fRegion').value;
+  const kw  = REGION_MAP[r] || '';
   const hint = document.getElementById('addrHint');
-  const input = document.getElementById('fAddr');
-  if (kw) {
-    hint.textContent = '(' + kw + ' 기준 검색)';
-    input.placeholder = kw.split(' ').pop() + ' 도로명 입력...';
-  } else {
-    hint.textContent = '';
-    input.placeholder = '지역 선택 후 입력하세요';
+  hint.textContent = kw ? '(' + kw + ' 기준)' : '';
+  // 주소는 초기화하지 않음
+}
+
+// 주소 선택 시 지역 드롭다운 자동 세팅
+function autoSetRegion(data) {
+  // data.sido, data.sigungu, data.bname 활용
+  const sido   = data.sido   || '';
+  const sigungu = data.sigungu || '';
+  const full   = sido + ' ' + sigungu;
+
+  // REGION_MAP 역방향 조회
+  for (const [key, val] of Object.entries(REGION_MAP)) {
+    if (full.replace('경기도','경기').includes(val.replace('경기도','경기').split(' ')[1] || val)) {
+      document.getElementById('fRegion').value = key;
+      document.getElementById('addrHint').textContent = '(' + val + ' 기준)';
+      return;
+    }
   }
-  input.value = '';
-  document.getElementById('addrStatus').textContent = '';
-  closeDD();
+  // 시도만으로 매핑
+  if (sido.includes('서울')) {
+    document.getElementById('fRegion').value = '서울';
+  } else if (sido.includes('인천')) {
+    document.getElementById('fRegion').value = '인천';
+  }
 }
 
 // ══════════════════════════════════════════════
@@ -507,11 +544,12 @@ function openAddrSearch() {
       outlineColor: '#1e3a5f',
     },
     oncomplete: function(data) {
-      // 도로명 주소 우선, 없으면 지번
       const addr = data.roadAddress || data.jibunAddress;
       document.getElementById('fAddr').value = addr;
       document.getElementById('addrStatus').innerHTML =
         '<span class="geo-ok">✓ ' + addr + (data.buildingName ? ' (' + data.buildingName + ')' : '') + '</span>';
+      // 주소에서 지역 자동 매핑
+      autoSetRegion(data);
     }
   }).open();
 }
@@ -687,7 +725,7 @@ function saveProperty() {
   }
 
   persist();
-  toast(editId ? '수정 완료 ✓' : '등록 완료 ✓');
+  toast(editId ? '✅ 수정되었습니다!' : '✅ 저장되었습니다!');
   resetForm();
   goTab('list', document.getElementById('tabList'));
 }
@@ -695,12 +733,13 @@ function saveProperty() {
 function delProperty() {
   const id = parseInt(document.getElementById('fId').value);
   if (!id) return;
-  if (!confirm('이 매물을 삭제하시겠어요?')) return;
-  props = props.filter(p => p.id !== id);
-  persist();
-  toast('삭제됐습니다.');
-  resetForm();
-  goTab('list', document.getElementById('tabList'));
+  showConfirm('이 매물을 삭제할까요?', '삭제', '취소', function() {
+    props = props.filter(p => p.id !== id);
+    persist();
+    toast('🗑️ 삭제되었습니다.');
+    resetForm();
+    goTab('list', document.getElementById('tabList'));
+  });
 }
 
 // ══════════════════════════════════════════════
@@ -754,11 +793,12 @@ function renderList() {
 }
 
 function delFromList(id) {
-  if (!confirm('삭제하시겠어요?')) return;
-  props = props.filter(p => p.id !== id);
-  persist();
-  renderList();
-  toast('삭제됐습니다.');
+  showConfirm('이 매물을 삭제할까요?', '삭제', '취소', function() {
+    props = props.filter(p => p.id !== id);
+    persist();
+    renderList();
+    toast('🗑️ 삭제되었습니다.');
+  });
 }
 
 // ══════════════════════════════════════════════
@@ -768,13 +808,20 @@ function doExport() {
   if (!props.length) { toast('매물이 없습니다.', true); return; }
   const headers = ['지역','세부지역','주소','단지명','타입','분양가(만원)','담보실입(만원)',
     '취득세지원','취득세금액(만원)','세금지원','세금지원내용',
-    'R금액(×100만원)','R금액실제(만원)','R조건','방수','화장실','복층','주차','비고'];
+    'R금액(×100만원)','R금액실제(만원)','R조건','방수','화장실','복층','주차','비고',
+    '마커설명(지도표시용)'];
   const rows = props.map(p => [
     p.regionFull||p.region, p.subregion, p.address, p.name, p.type,
     p.price, p.mortgage,
     p.tax, p.taxamt, p.taxsup, p.taxdetail,
     p.ramt, (p.ramt||0)*100, p.rmemo,
-    p.rooms, p.baths, p.duplex, p.parking, p.memo
+    p.rooms, p.baths, p.duplex, p.parking, p.memo,
+    '분양가 ' + (p.price ? p.price.toLocaleString() + '만' : '-') +
+    ' | 담보실입 ' + (p.mortgage ? p.mortgage.toLocaleString() + '만' : '-') +
+    ' | R ' + (p.ramt ? (p.ramt*100).toLocaleString() + '만' : '-') +
+    (p.tax==='O' ? ' | 취득세↓' : '') +
+    (p.duplex==='O' ? ' | 복층' : '') +
+    (p.memo ? ' | ' + p.memo : '')
   ]);
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
@@ -873,6 +920,23 @@ function toast(msg, isErr) {
   el.textContent = msg;
   el.className = 'toast' + (isErr ? ' err' : '') + ' show';
   setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+
+// ── 커스텀 Confirm ──────────────────────────────────
+function showConfirm(msg, okLabel, cancelLabel, onOk) {
+  const bg = document.getElementById('cfmBg');
+  document.getElementById('cfmMsg').textContent = msg;
+  document.getElementById('cfmOk').textContent = okLabel;
+  document.getElementById('cfmCancel').textContent = cancelLabel;
+  bg.style.display = 'flex';
+  document.getElementById('cfmOk').onclick = function() {
+    bg.style.display = 'none';
+    onOk();
+  };
+  document.getElementById('cfmCancel').onclick = function() {
+    bg.style.display = 'none';
+  };
 }
 
 // ══════════════════════════════════════════════
