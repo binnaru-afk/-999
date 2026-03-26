@@ -198,28 +198,20 @@ code{background:var(--card);padding:1px 6px;border-radius:4px;color:var(--cyan);
           <div class="form-grid">
             <div class="field">
               <label>지역 *</label>
-              <select id="fRegion" onchange="onRegionChange()">
-                <option value="">-- 선택 --</option>
-                <optgroup label="수도권">
-                  <option>서울</option><option>인천</option>
-                  <option>경기-고양</option><option>경기-광명</option><option>경기-경기광주</option>
-                  <option>경기-김포</option><option>경기-남양주</option><option>경기-동두천</option>
-                  <option>경기-수원</option><option>경기-성남</option><option>경기-안산</option>
-                  <option>경기-안성</option><option>경기-안양</option><option>경기-양주</option>
-                  <option>경기-양평</option><option>경기-여주</option><option>경기-연천</option>
-                  <option>경기-오산</option><option>경기-용인</option><option>경기-의왕</option>
-                  <option>경기-의정부</option><option>경기-이천</option><option>경기-과천</option>
-                  <option>경기-군포</option><option>경기-하남</option><option>경기-화성</option>
-                  <option>경기-파주</option><option>경기-평택</option><option>경기-포천</option>
-                </optgroup>
-                <optgroup label="충청권">
-                  <option>충남-아산</option><option>충남-당진</option><option>충남-서산</option>
-                  <option>충북-청주</option><option>충북-충주</option>
-                </optgroup>
-                <optgroup label="기타">
-                  <option>경북-구미</option><option>기타</option>
-                </optgroup>
-              </select>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <select id="fRegion" onchange="onRegionChange()" style="flex:1;min-width:110px">
+                  <option value="">-- 광역 --</option>
+                  <option>서울</option>
+                  <option>인천</option>
+                  <option>경기</option>
+                  <option>충청</option>
+                  <option>경북</option>
+                  <option>기타</option>
+                </select>
+                <select id="fDistrict" onchange="onDistrictChange()" style="flex:1;min-width:140px;display:none">
+                  <option value="">-- 세부지역 --</option>
+                </select>
+              </div>
             </div>
             <div class="field">
               <label>단지/건물명 *</label>
@@ -473,49 +465,87 @@ function goTab(name, el) {
 // ══════════════════════════════════════════════
 // 지역 → 검색 키워드 맵
 // ══════════════════════════════════════════════
-const REGION_MAP = {
-  '서울':'서울','인천':'인천',
-  '경기-고양':'경기도 고양시','경기-광명':'경기도 광명시','경기-경기광주':'경기도 광주시',
-  '경기-김포':'경기도 김포시','경기-남양주':'경기도 남양주시','경기-동두천':'경기도 동두천시',
-  '경기-수원':'경기도 수원시','경기-성남':'경기도 성남시','경기-안산':'경기도 안산시',
-  '경기-안성':'경기도 안성시','경기-안양':'경기도 안양시','경기-양주':'경기도 양주시',
-  '경기-양평':'경기도 양평군','경기-여주':'경기도 여주시','경기-연천':'경기도 연천군',
-  '경기-오산':'경기도 오산시','경기-용인':'경기도 용인시','경기-의왕':'경기도 의왕시',
-  '경기-의정부':'경기도 의정부시','경기-이천':'경기도 이천시','경기-과천':'경기도 과천시',
-  '경기-군포':'경기도 군포시','경기-하남':'경기도 하남시','경기-화성':'경기도 화성시',
-  '경기-파주':'경기도 파주시','경기-평택':'경기도 평택시','경기-포천':'경기도 포천시',
-  '충남-아산':'충청남도 아산시','충남-당진':'충청남도 당진시','충남-서산':'충청남도 서산시',
-  '충북-청주':'충청북도 청주시','충북-충주':'충청북도 충주시','경북-구미':'경상북도 구미시',
+// ── 지역 데이터 ──────────────────────────────────────
+const DISTRICT_MAP = {
+  '서울': ['강남구','강동구','강북구','강서구','관악구','광진구','구로구','금천구',
+    '노원구','도봉구','동대문구','동작구','마포구','서대문구','서초구','성동구',
+    '성북구','송파구','양천구','영등포구','용산구','은평구','종로구','중구','중랑구'],
+  '인천': ['강화군','계양구','남동구','동구','미추홀구','부평구','서구','연수구','옹진군','중구'],
+  '경기': ['고양시','과천시','광명시','광주시','구리시','군포시','김포시','남양주시',
+    '동두천시','부천시','성남시','수원시','시흥시','안산시','안성시','안양시',
+    '양주시','양평군','여주시','연천군','오산시','용인시','의왕시','의정부시',
+    '이천시','파주시','평택시','포천시','하남시','화성시'],
+  '충청': ['충남 아산시','충남 당진시','충남 서산시','충남 천안시','충남 공주시',
+    '충북 청주시','충북 충주시','충북 제천시','대전시','세종시'],
+  '경북': ['구미시','포항시','경주시','안동시','김천시'],
+};
+
+// 주소 검색용 키워드 매핑
+const ADDR_PREFIX = {
+  '서울': '서울',
+  '인천': '인천',
+  '경기': '경기도',
+  '충청': '충청',
+  '경북': '경상북도',
 };
 
 function onRegionChange() {
-  const r   = document.getElementById('fRegion').value;
-  const kw  = REGION_MAP[r] || '';
-  const hint = document.getElementById('addrHint');
-  hint.textContent = kw ? '(' + kw + ' 기준)' : '';
-  // 주소는 초기화하지 않음
+  const r = document.getElementById('fRegion').value;
+  const distEl = document.getElementById('fDistrict');
+
+  if (DISTRICT_MAP[r]) {
+    distEl.innerHTML = '<option value="">-- 세부지역 --</option>' +
+      DISTRICT_MAP[r].map(d => '<option value="' + d + '">' + d + '</option>').join('');
+    distEl.style.display = '';
+    distEl.value = '';
+  } else {
+    distEl.style.display = 'none';
+    distEl.value = '';
+  }
+  updateAddrHint();
 }
 
-// 주소 선택 시 지역 드롭다운 자동 세팅
-function autoSetRegion(data) {
-  // data.sido, data.sigungu, data.bname 활용
-  const sido   = data.sido   || '';
-  const sigungu = data.sigungu || '';
-  const full   = sido + ' ' + sigungu;
+function onDistrictChange() {
+  updateAddrHint();
+}
 
-  // REGION_MAP 역방향 조회
-  for (const [key, val] of Object.entries(REGION_MAP)) {
-    if (full.replace('경기도','경기').includes(val.replace('경기도','경기').split(' ')[1] || val)) {
-      document.getElementById('fRegion').value = key;
-      document.getElementById('addrHint').textContent = '(' + val + ' 기준)';
-      return;
+function updateAddrHint() {
+  const r  = document.getElementById('fRegion').value;
+  const d  = document.getElementById('fDistrict').value;
+  const hint = document.getElementById('addrHint');
+  if (d)      hint.textContent = '(' + d + ' 기준 검색)';
+  else if (r) hint.textContent = '(' + (ADDR_PREFIX[r] || r) + ' 기준 검색)';
+  else        hint.textContent = '';
+}
+
+// 주소 팝업 선택 시 지역 자동 세팅
+function autoSetRegion(data) {
+  const sido    = data.sido    || '';
+  const sigungu = data.sigungu || '';
+
+  let regionKey = '';
+  if (sido.includes('서울'))         regionKey = '서울';
+  else if (sido.includes('인천'))    regionKey = '인천';
+  else if (sido.includes('경기'))    regionKey = '경기';
+  else if (sido.includes('충청') || sido.includes('대전') || sido.includes('세종')) regionKey = '충청';
+  else if (sido.includes('경상북') || sido.includes('경북')) regionKey = '경북';
+
+  if (!regionKey) return;
+
+  document.getElementById('fRegion').value = regionKey;
+  onRegionChange();
+
+  // 세부지역 자동 선택
+  if (sigungu) {
+    const distEl = document.getElementById('fDistrict');
+    for (const opt of distEl.options) {
+      // "충남 아산시" 형태도 매칭
+      if (opt.value === sigungu || opt.value.includes(sigungu) || sigungu.includes(opt.value.replace(/^충남 |^충북 /, ''))) {
+        distEl.value = opt.value;
+        break;
+      }
     }
-  }
-  // 시도만으로 매핑
-  if (sido.includes('서울')) {
-    document.getElementById('fRegion').value = '서울';
-  } else if (sido.includes('인천')) {
-    document.getElementById('fRegion').value = '인천';
+    updateAddrHint();
   }
 }
 
@@ -630,8 +660,17 @@ function openForm(prop) {
     document.getElementById('fBadge').style.display = '';
     document.getElementById('fDelBtn').style.display = '';
     document.getElementById('fId').value = prop.id;
-    document.getElementById('fRegion').value = prop.regionFull || prop.region || '';
+    const rf = prop.regionFull || prop.region || '';
+    // "서울 강남구" 또는 "경기 안산시" 형식 처리
+    const spaceIdx = rf.indexOf(' ');
+    const baseR = spaceIdx > 0 ? rf.slice(0, spaceIdx) : rf;
+    const distR  = spaceIdx > 0 ? rf.slice(spaceIdx + 1) : '';
+    document.getElementById('fRegion').value = baseR;
     onRegionChange();
+    if (distR) {
+      document.getElementById('fDistrict').value = distR;
+      updateAddrHint();
+    }
     document.getElementById('fAddr').value = prop.address || '';
     document.getElementById('addrStatus').innerHTML = prop.address ? '<span class="geo-ok">✓ ' + prop.address + '</span>' : '';
     document.getElementById('fName').value = prop.name || '';
@@ -668,6 +707,7 @@ function resetForm() {
   document.getElementById('fRooms').value = '3';
   document.getElementById('fBaths').value = '2';
   document.getElementById('addrHint').textContent = '';
+  const distEl = document.getElementById('fDistrict'); distEl.style.display='none'; distEl.value='';
   document.getElementById('addrStatus').textContent = '';
   document.getElementById('rHint').textContent = '';
   setOX('fTax', 'O'); setOX('fTaxSup', 'X'); setOX('fDuplex', 'X');
@@ -689,11 +729,13 @@ function saveProperty() {
   const addrParts = addr.split(' ');
   const subregion = addrParts.length >= 2 ? addrParts[1] : '';
   const regionBase = region.includes('-') ? region.split('-')[0] : region;
+  const district = document.getElementById('fDistrict').value;
+  const regionFull = district ? region + ' ' + district : region;
 
   const p = {
     id:         editId ? parseInt(editId) : nextId++,
     region:     regionBase,
-    regionFull: region,
+    regionFull: regionFull,
     subregion,
     address:    addr,
     name,
