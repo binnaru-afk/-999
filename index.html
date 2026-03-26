@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>돌고래하우스 | 매물 관리</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&family=Bebas+Neue&display=swap');
 :root{
@@ -221,18 +222,17 @@ code{background:var(--card);padding:1px 6px;border-radius:4px;color:var(--cyan);
             </div>
           </div>
 
-          <!-- 주소 자동완성 -->
+          <!-- 주소 검색 (카카오 우편번호 서비스) -->
           <div class="addr-wrap">
             <div class="field" style="gap:4px">
-              <label>도로명 주소 * <span id="addrHint" style="color:var(--muted);font-weight:400;font-size:10px"></span></label>
+              <label>도로명 주소 * <span id="addrHint" style="color:var(--muted);font-weight:400;font-size:10px">(건물명·도로명 모두 검색 가능)</span></label>
               <div class="addr-row">
-                <input id="fAddr" placeholder="지역 선택 후 입력하세요" autocomplete="off"
-                  oninput="onAddrInput(this.value)" onkeydown="onAddrKey(event)">
-                <button class="copy-btn" onclick="copyAddr()">📋</button>
+                <input id="fAddr" placeholder="🔍 검색 버튼을 눌러 주소를 찾으세요" readonly
+                  style="cursor:pointer;background:var(--card)" onclick="openAddrSearch()">
+                <button class="copy-btn" onclick="openAddrSearch()" style="background:var(--blue);color:#fff;border-color:var(--blue);padding:8px 14px;font-weight:700">🔍 검색</button>
               </div>
               <div id="addrStatus"></div>
             </div>
-            <div class="addr-dd" id="addrDD"></div>
           </div>
         </div>
 
@@ -484,95 +484,39 @@ function onRegionChange() {
 
 // ══════════════════════════════════════════════
 // 주소 자동완성 (카카오 REST API)
-// ── 주소 검색: 행정안전부 도로명주소 API (무료, 키 불필요, file:// 완전 지원)
-let addrTimer = null, addrList = [], ddSelIdx = -1;
-const JUSO_KEY = 'devU01TX0FVVEgyMDI1MDMyNjEwMDUxMjExNTI4MDI=';
-
-function onAddrInput(val) {
-  clearTimeout(addrTimer);
-  if (val.trim().length < 2) { closeDD(); return; }
-  addrTimer = setTimeout(() => fetchAddr(val.trim()), 350);
-}
-
-async function fetchAddr(q) {
-  const r      = document.getElementById('fRegion').value;
-  const prefix = REGION_MAP[r] || '';
-  const keyword = prefix ? prefix + ' ' + q : q;
-  const dd     = document.getElementById('addrDD');
-  dd.innerHTML = '<div class="addr-dd-msg">검색 중...</div>';
-  dd.style.display = 'block';
-  try {
-    const url = 'https://business.juso.go.kr/addrlink/addrLinkApi.do'
-      + '?currentPage=1&countPerPage=10'
-      + '&keyword='  + encodeURIComponent(keyword)
-      + '&confmKey=' + JUSO_KEY
-      + '&resultType=json';
-    const res  = await fetch(url);
-    const data = await res.json();
-    const juso = (data.results && data.results.juso) || [];
-    addrList = juso.map(j => ({
-      road:  j.roadAddr  || '',
-      jibun: j.jibunAddr || ''
-    })).filter(d => d.road);
-    renderDD(addrList);
-  } catch(e) {
-    dd.innerHTML = '<div class="addr-dd-msg">검색 오류. 주소를 직접 입력해주세요.</div>';
-  }
-}
-
-function renderDD(list) {
-  const dd = document.getElementById('addrDD');
-  ddSelIdx = -1;
-  if (!list.length) {
-    dd.innerHTML = '<div class="addr-dd-msg">결과 없음. 더 구체적으로 입력해보세요.</div>';
-    dd.style.display = 'block';
+// ── 주소 검색: 카카오 우편번호 서비스 (file:// 완전 지원, 건물명 검색 가능)
+function openAddrSearch() {
+  if (typeof daum === 'undefined' || !daum.Postcode) {
+    // 스크립트 동적 로드 후 실행
+    const s = document.createElement('script');
+    s.src = 'https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js';
+    s.onload = () => openAddrSearch();
+    document.head.appendChild(s);
     return;
   }
-  dd.innerHTML = list.map((d, i) =>
-    '<div class="addr-dd-item" data-i="' + i + '" onclick="pickAddr(' + i + ')">' +
-    '<div class="addr-dd-road">' + d.road + '</div>' +
-    (d.jibun ? '<div class="addr-dd-jibun">' + d.jibun + '</div>' : '') +
-    '</div>'
-  ).join('');
-  dd.style.display = 'block';
+  new daum.Postcode({
+    theme: {
+      bgColor: '#111f35',
+      searchBgColor: '#152540',
+      contentBgColor: '#0a1628',
+      pageBgColor: '#0a1628',
+      textColor: '#e8f1ff',
+      queryTextColor: '#e8f1ff',
+      postcodeTextColor: '#00b4d8',
+      emphTextColor: '#f4a442',
+      outlineColor: '#1e3a5f',
+    },
+    oncomplete: function(data) {
+      // 도로명 주소 우선, 없으면 지번
+      const addr = data.roadAddress || data.jibunAddress;
+      document.getElementById('fAddr').value = addr;
+      document.getElementById('addrStatus').innerHTML =
+        '<span class="geo-ok">✓ ' + addr + (data.buildingName ? ' (' + data.buildingName + ')' : '') + '</span>';
+    }
+  }).open();
 }
 
-function pickAddr(i) {
-  const d = addrList[i];
-  if (!d) return;
-  document.getElementById('fAddr').value = d.road;
-  document.getElementById('addrStatus').innerHTML = '<span class="geo-ok">✓ ' + d.road + '</span>';
-  closeDD();
-}
 
-function onAddrKey(e) {
-  const items = document.querySelectorAll('.addr-dd-item');
-  if (!items.length) return;
-  if (e.key === 'ArrowDown') {
-    e.preventDefault();
-    ddSelIdx = Math.min(ddSelIdx + 1, items.length - 1);
-    items.forEach((el, i) => el.classList.toggle('sel', i === ddSelIdx));
-  } else if (e.key === 'ArrowUp') {
-    e.preventDefault();
-    ddSelIdx = Math.max(ddSelIdx - 1, 0);
-    items.forEach((el, i) => el.classList.toggle('sel', i === ddSelIdx));
-  } else if (e.key === 'Enter' && ddSelIdx >= 0) {
-    e.preventDefault(); pickAddr(ddSelIdx);
-  } else if (e.key === 'Escape') {
-    closeDD();
-  }
-}
-
-function closeDD() {
-  const dd = document.getElementById('addrDD');
-  dd.style.display = 'none';
-  dd.innerHTML = '';
-  addrList = []; ddSelIdx = -1;
-}
-
-document.addEventListener('click', e => {
-  if (!e.target.closest('#fAddr') && !e.target.closest('#addrDD')) closeDD();
-});
 
 function copyAddr() {
   const v = document.getElementById('fAddr').value.trim();
