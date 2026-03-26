@@ -1,1 +1,954 @@
-# -
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>돌고래하우스 | 매물 관리</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&family=Bebas+Neue&display=swap');
+:root{
+  --navy:#0d1b2a;--blue:#1e5fa8;--cyan:#00b4d8;--green:#2dc653;
+  --red:#e63946;--gold:#f4a442;--purple:#9b5de5;
+  --bg:#0a1628;--panel:#111f35;--card:#152540;--border:#1e3a5f;
+  --text:#e8f1ff;--muted:#7a9cc0;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);height:100vh;overflow:hidden;display:flex;flex-direction:column;}
+
+/* TOPBAR */
+.topbar{background:linear-gradient(90deg,var(--navy),#0d2240);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;align-items:center;gap:12px;flex-shrink:0;z-index:100;}
+.logo{font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--cyan);letter-spacing:2px;white-space:nowrap;}
+.logo span{color:var(--gold);}
+.stat-chip{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:4px 12px;font-size:12px;display:flex;align-items:center;gap:5px;white-space:nowrap;}
+.stat-chip .num{font-weight:700;color:var(--cyan);font-size:13px;}
+.topbar-actions{margin-left:auto;display:flex;gap:7px;}
+.tb-btn{background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:6px 13px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:600;transition:all .15s;white-space:nowrap;}
+.tb-btn:hover{border-color:var(--cyan);color:var(--cyan);}
+.tb-btn.primary{background:var(--blue);border-color:var(--blue);color:#fff;}
+.tb-btn.primary:hover{background:var(--cyan);color:var(--navy);}
+
+/* TABS */
+.tabs{display:flex;background:var(--panel);border-bottom:1px solid var(--border);flex-shrink:0;}
+.tab{padding:10px 22px;font-size:13px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;color:var(--muted);transition:all .15s;}
+.tab.active{color:var(--cyan);border-bottom-color:var(--cyan);}
+
+.content{flex:1;overflow:hidden;display:flex;}
+.tab-pane{display:none;flex:1;overflow:hidden;}
+.tab-pane.active{display:flex;}
+
+/* ── 입력폼 ── */
+.form-wrap{flex:1;overflow-y:auto;padding:20px;}
+.form-wrap::-webkit-scrollbar{width:4px;}
+.form-wrap::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+.form-card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:22px;max-width:820px;margin:0 auto;}
+.form-title{font-size:15px;font-weight:700;color:var(--cyan);margin-bottom:18px;display:flex;align-items:center;gap:8px;}
+.edit-badge{background:rgba(244,164,66,.15);border:1px solid rgba(244,164,66,.3);color:var(--gold);border-radius:6px;padding:3px 10px;font-size:11px;font-weight:700;}
+.form-sec{margin-bottom:18px;}
+.form-sec-lbl{font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);font-weight:700;margin-bottom:9px;padding-bottom:5px;border-bottom:1px solid var(--border);}
+.form-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;}
+.field{display:flex;flex-direction:column;gap:4px;}
+.field label{font-size:11px;color:var(--muted);font-weight:600;}
+.field input,.field select,.field textarea{background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:8px 11px;font-size:13px;font-family:inherit;transition:border-color .15s;width:100%;}
+.field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--cyan);}
+.field input::placeholder{color:var(--muted);opacity:.5;}
+.field select option{background:var(--card);}
+.field textarea{resize:vertical;min-height:55px;}
+.field .hint{font-size:10px;color:var(--muted);margin-top:2px;}
+
+/* 주소 자동완성 */
+.addr-wrap{position:relative;margin-top:10px;}
+.addr-row{display:flex;gap:7px;}
+.addr-row input{flex:1;}
+.addr-dd{display:none;position:absolute;top:calc(100% + 2px);left:0;right:60px;background:var(--card);border:1px solid var(--cyan);border-radius:0 0 8px 8px;z-index:999;max-height:220px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.5);}
+.addr-dd-item{padding:10px 13px;cursor:pointer;border-bottom:1px solid var(--border);transition:background .1s;}
+.addr-dd-item:hover,.addr-dd-item.sel{background:rgba(30,95,168,.3);}
+.addr-dd-item:last-child{border-bottom:none;}
+.addr-dd-road{font-size:12px;font-weight:600;color:var(--text);}
+.addr-dd-jibun{font-size:10px;color:var(--muted);margin-top:2px;}
+.addr-dd-msg{padding:12px 13px;font-size:12px;color:var(--muted);}
+.geo-ok{font-size:11px;color:var(--green);margin-top:3px;}
+.geo-fail{font-size:11px;color:var(--red);margin-top:3px;}
+.copy-btn{background:var(--panel);border:1px solid var(--border);color:var(--muted);border-radius:7px;padding:8px 12px;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap;transition:all .15s;flex-shrink:0;}
+.copy-btn:hover{border-color:var(--cyan);color:var(--cyan);}
+
+/* OX 토글 */
+.ox-group{display:flex;gap:5px;}
+.ox-btn{flex:1;padding:8px;border-radius:7px;border:1px solid var(--border);background:var(--card);color:var(--muted);font-size:13px;font-weight:700;cursor:pointer;text-align:center;transition:all .15s;font-family:inherit;}
+.ox-btn.o.on{background:rgba(45,198,83,.2);border-color:var(--green);color:var(--green);}
+.ox-btn.x.on{background:rgba(230,57,70,.12);border-color:var(--red);color:var(--red);}
+
+/* 이미지 업로드 */
+.img-drop{border:2px dashed var(--border);border-radius:9px;padding:14px;text-align:center;cursor:pointer;transition:all .2s;background:var(--card);font-size:12px;color:var(--muted);}
+.img-drop:hover,.img-drop.drag{border-color:var(--cyan);color:var(--cyan);}
+.img-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:6px;margin-top:8px;}
+.img-thumb{position:relative;aspect-ratio:1;border-radius:6px;overflow:hidden;}
+.img-thumb img{width:100%;height:100%;object-fit:cover;cursor:pointer;}
+.img-del{position:absolute;top:2px;right:2px;background:rgba(0,0,0,.75);color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;}
+
+.form-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:18px;padding-top:14px;border-top:1px solid var(--border);}
+.btn{padding:9px 22px;border-radius:7px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;border:none;transition:all .15s;}
+.btn-cancel{background:var(--card);color:var(--muted);border:1px solid var(--border);}
+.btn-save{background:var(--blue);color:#fff;}
+.btn-save:hover{background:var(--cyan);color:var(--navy);}
+.btn-del{background:rgba(230,57,70,.12);color:var(--red);border:1px solid rgba(230,57,70,.3);}
+.btn-del:hover{background:var(--red);color:#fff;}
+
+/* ── 목록 ── */
+.list-view{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.list-toolbar{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;gap:7px;align-items:center;flex-shrink:0;flex-wrap:wrap;}
+.list-toolbar select,.list-toolbar input{background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:6px 10px;font-size:12px;font-family:inherit;}
+.list-toolbar input{width:170px;}
+.list-count{margin-left:auto;font-size:12px;color:var(--muted);}
+.list-count strong{color:var(--cyan);}
+.table-wrap{flex:1;overflow:auto;}
+.table-wrap::-webkit-scrollbar{width:4px;height:4px;}
+.table-wrap::-webkit-scrollbar-thumb{background:var(--border);}
+table{width:100%;border-collapse:collapse;font-size:12px;min-width:900px;}
+thead th{background:var(--panel);padding:9px 11px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;border-bottom:1px solid var(--border);white-space:nowrap;position:sticky;top:0;z-index:5;}
+tbody tr{border-bottom:1px solid rgba(30,58,95,.4);cursor:pointer;transition:background .1s;}
+tbody tr:hover{background:rgba(30,95,168,.1);}
+tbody td{padding:9px 11px;vertical-align:middle;}
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;}
+.b-green{background:rgba(45,198,83,.15);color:var(--green);border:1px solid rgba(45,198,83,.3);}
+.b-red{background:rgba(230,57,70,.15);color:var(--red);border:1px solid rgba(230,57,70,.3);}
+.b-gold{background:rgba(244,164,66,.15);color:var(--gold);border:1px solid rgba(244,164,66,.3);}
+.b-x{background:rgba(100,100,120,.1);color:#666;}
+.price-hl{font-weight:700;color:var(--cyan);}
+.r-hl{font-weight:700;color:var(--purple);}
+.act-btns{display:flex;gap:4px;}
+.act-btn{background:var(--card);border:1px solid var(--border);color:var(--muted);border-radius:5px;padding:3px 8px;font-size:11px;cursor:pointer;font-family:inherit;transition:all .1s;}
+.act-btn:hover{border-color:var(--cyan);color:var(--cyan);}
+.act-btn.del:hover{border-color:var(--red);color:var(--red);}
+.img-dot{width:6px;height:6px;background:var(--gold);border-radius:50%;display:inline-block;margin-left:4px;vertical-align:middle;}
+
+/* ── 지도(마이맵 가이드) ── */
+.map-guide{flex:1;overflow-y:auto;padding:28px;display:flex;flex-direction:column;align-items:center;gap:20px;}
+.guide-card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:24px 28px;max-width:580px;width:100%;text-align:center;}
+.guide-step{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px 18px;max-width:580px;width:100%;display:flex;gap:14px;align-items:flex-start;}
+.step-num{background:var(--blue);color:#fff;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:12px;flex-shrink:0;}
+.step-title{font-weight:700;font-size:13px;margin-bottom:3px;}
+.step-desc{font-size:12px;color:var(--muted);line-height:1.7;}
+code{background:var(--card);padding:1px 6px;border-radius:4px;color:var(--cyan);font-size:11px;}
+
+/* 이미지 오버레이 */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:9999;display:none;align-items:center;justify-content:center;flex-direction:column;}
+.overlay.on{display:flex;}
+.overlay img{max-width:90vw;max-height:85vh;border-radius:8px;object-fit:contain;}
+.overlay-close{position:absolute;top:14px;right:18px;background:var(--card);border:1px solid var(--border);color:var(--text);width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;}
+.ov-nav{display:flex;gap:10px;margin-top:12px;}
+.ov-nav button{background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:6px 16px;font-size:12px;cursor:pointer;font-family:inherit;}
+
+/* 토스트 */
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(70px);background:var(--green);color:#fff;padding:10px 22px;border-radius:8px;font-size:13px;font-weight:700;z-index:9999;transition:transform .25s;pointer-events:none;}
+.toast.show{transform:translateX(-50%) translateY(0);}
+.toast.err{background:var(--red);}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="logo">🐬 돌고래<span>하우스</span></div>
+  <div class="stat-chip">전체 <span class="num" id="stTotal">0</span></div>
+  <div class="stat-chip">분양중 <span class="num" id="stActive" style="color:var(--green)">0</span></div>
+  <div class="stat-chip" style="color:var(--purple)">R합계 <span class="num" id="stR" style="color:var(--purple)">-</span></div>
+  <div class="topbar-actions">
+    <button class="tb-btn" onclick="doExport()">📥 엑셀 저장</button>
+    <button class="tb-btn" onclick="document.getElementById('xlsxInput').click()">📂 엑셀 불러오기</button>
+    <input type="file" id="xlsxInput" accept=".xlsx,.xls" style="display:none" onchange="doImport(this)">
+    <button class="tb-btn primary" onclick="openForm(null)">＋ 매물 등록</button>
+  </div>
+</div>
+
+<!-- TABS -->
+<div class="tabs">
+  <div class="tab active" id="tabForm" onclick="goTab('form',this)">✏️ 매물 입력</div>
+  <div class="tab" id="tabList" onclick="goTab('list',this)">📋 매물 목록</div>
+  <div class="tab" id="tabMap" onclick="goTab('map',this)">🗺️ 지도 연동</div>
+</div>
+
+<div class="content">
+
+  <!-- ── 폼 탭 ── -->
+  <div class="tab-pane active" id="paneForm">
+    <div class="form-wrap">
+      <div class="form-card">
+        <div class="form-title">
+          <span id="fTitle">🏠 신규 매물 등록</span>
+          <span class="edit-badge" id="fBadge" style="display:none">수정 중</span>
+        </div>
+        <input type="hidden" id="fId">
+
+        <!-- 기본정보 -->
+        <div class="form-sec">
+          <div class="form-sec-lbl">📍 기본 정보</div>
+          <div class="form-grid">
+            <div class="field">
+              <label>지역 *</label>
+              <select id="fRegion" onchange="onRegionChange()">
+                <option value="">-- 선택 --</option>
+                <optgroup label="수도권">
+                  <option>서울</option><option>인천</option>
+                  <option>경기-고양</option><option>경기-광명</option><option>경기-경기광주</option>
+                  <option>경기-김포</option><option>경기-남양주</option><option>경기-동두천</option>
+                  <option>경기-수원</option><option>경기-성남</option><option>경기-안산</option>
+                  <option>경기-안성</option><option>경기-안양</option><option>경기-양주</option>
+                  <option>경기-양평</option><option>경기-여주</option><option>경기-연천</option>
+                  <option>경기-오산</option><option>경기-용인</option><option>경기-의왕</option>
+                  <option>경기-의정부</option><option>경기-이천</option><option>경기-과천</option>
+                  <option>경기-군포</option><option>경기-하남</option><option>경기-화성</option>
+                  <option>경기-파주</option><option>경기-평택</option><option>경기-포천</option>
+                </optgroup>
+                <optgroup label="충청권">
+                  <option>충남-아산</option><option>충남-당진</option><option>충남-서산</option>
+                  <option>충북-청주</option><option>충북-충주</option>
+                </optgroup>
+                <optgroup label="기타">
+                  <option>경북-구미</option><option>기타</option>
+                </optgroup>
+              </select>
+            </div>
+            <div class="field">
+              <label>단지/건물명 *</label>
+              <input id="fName" placeholder="예: 검단 스카이빌">
+            </div>
+            <div class="field">
+              <label>타입</label>
+              <select id="fType">
+                <option>원룸</option><option>투룸</option><option selected>쓰리룸</option><option>포룸+</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- 주소 자동완성 -->
+          <div class="addr-wrap">
+            <div class="field" style="gap:4px">
+              <label>도로명 주소 * <span id="addrHint" style="color:var(--muted);font-weight:400;font-size:10px"></span></label>
+              <div class="addr-row">
+                <input id="fAddr" placeholder="지역 선택 후 입력하세요" autocomplete="off"
+                  oninput="onAddrInput(this.value)" onkeydown="onAddrKey(event)">
+                <button class="copy-btn" onclick="copyAddr()">📋</button>
+              </div>
+              <div id="addrStatus"></div>
+            </div>
+            <div class="addr-dd" id="addrDD"></div>
+          </div>
+        </div>
+
+        <!-- 가격 -->
+        <div class="form-sec">
+          <div class="form-sec-lbl">💰 가격 (만원)</div>
+          <div class="form-grid">
+            <div class="field">
+              <label>분양가 *</label>
+              <input id="fPrice" type="number" placeholder="예: 28000">
+            </div>
+            <div class="field">
+              <label>담보실입</label>
+              <input id="fMortgage" type="number" placeholder="예: 25000">
+            </div>
+          </div>
+        </div>
+
+        <!-- 지원 -->
+        <div class="form-sec">
+          <div class="form-sec-lbl">🏦 세금 지원</div>
+          <div class="form-grid">
+            <div class="field">
+              <label>취득세 지원</label>
+              <div class="ox-group">
+                <button class="ox-btn o on" data-f="fTax" onclick="toggleOX(this)">O</button>
+                <button class="ox-btn x" data-f="fTax" onclick="toggleOX(this)">X</button>
+              </div>
+              <input type="hidden" id="fTax" value="O">
+            </div>
+            <div class="field">
+              <label>취득세 금액 (만원)</label>
+              <input id="fTaxAmt" type="number" placeholder="예: 280">
+            </div>
+            <div class="field">
+              <label>세금 지원</label>
+              <div class="ox-group">
+                <button class="ox-btn o" data-f="fTaxSup" onclick="toggleOX(this)">O</button>
+                <button class="ox-btn x on" data-f="fTaxSup" onclick="toggleOX(this)">X</button>
+              </div>
+              <input type="hidden" id="fTaxSup" value="X">
+            </div>
+            <div class="field">
+              <label>세금 지원 내용</label>
+              <input id="fTaxDetail" placeholder="예: 취득세+등기비 지원">
+            </div>
+          </div>
+        </div>
+
+        <!-- R -->
+        <div class="form-sec">
+          <div class="form-sec-lbl">💜 R (수수료)</div>
+          <div class="form-grid">
+            <div class="field">
+              <label>R 금액 <span style="font-weight:400;color:var(--muted)">(단위: 100만원)</span></label>
+              <input id="fRamt" type="number" placeholder="예: 20" oninput="showRHint(this.value)">
+              <span class="hint" id="rHint"></span>
+            </div>
+            <div class="field">
+              <label>R 조건</label>
+              <input id="fRmemo" placeholder="예: 계약금 완납 후">
+            </div>
+          </div>
+        </div>
+
+        <!-- 사양 -->
+        <div class="form-sec">
+          <div class="form-sec-lbl">🏗️ 사양</div>
+          <div class="form-grid">
+            <div class="field">
+              <label>방 수</label>
+              <select id="fRooms"><option>1</option><option>2</option><option selected>3</option><option>4</option></select>
+            </div>
+            <div class="field">
+              <label>화장실</label>
+              <select id="fBaths"><option>1</option><option selected>2</option><option>3</option></select>
+            </div>
+            <div class="field">
+              <label>복층</label>
+              <div class="ox-group">
+                <button class="ox-btn o" data-f="fDuplex" onclick="toggleOX(this)">O</button>
+                <button class="ox-btn x on" data-f="fDuplex" onclick="toggleOX(this)">X</button>
+              </div>
+              <input type="hidden" id="fDuplex" value="X">
+            </div>
+            <div class="field">
+              <label>주차</label>
+              <input id="fParking" placeholder="예: 1대">
+            </div>
+          </div>
+        </div>
+
+        <!-- 속지 -->
+        <div class="form-sec">
+          <div class="form-sec-lbl">🖼️ 속지</div>
+          <div class="img-drop" id="imgDrop" onclick="document.getElementById('imgInput').click()">
+            📎 클릭하거나 드래그해서 속지 이미지 첨부 (여러 장 가능)
+          </div>
+          <input type="file" id="imgInput" accept="image/*" multiple style="display:none" onchange="addImages(this.files)">
+          <div class="img-grid" id="imgGrid"></div>
+        </div>
+
+        <!-- 비고 -->
+        <div class="form-sec">
+          <div class="form-sec-lbl">📌 비고</div>
+          <div class="field">
+            <textarea id="fMemo" placeholder="추가 메모"></textarea>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button class="btn btn-del" id="fDelBtn" style="display:none" onclick="delProperty()">🗑️ 삭제</button>
+          <button class="btn btn-cancel" onclick="resetForm()">초기화</button>
+          <button class="btn btn-save" onclick="saveProperty()">💾 저장</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 목록 탭 ── -->
+  <div class="tab-pane" id="paneList">
+    <div class="list-view">
+      <div class="list-toolbar">
+        <select id="filterRegion" onchange="renderList()">
+          <option value="">전체 지역</option>
+          <option>서울</option><option>인천</option><option>경기</option><option>충청</option><option>기타</option>
+        </select>
+        <input id="filterKw" placeholder="🔍 단지명/주소 검색" oninput="renderList()">
+        <span class="list-count" id="listCount"><strong>0</strong>건</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>지역</th><th>단지명</th><th>주소</th>
+              <th>분양가</th><th>담보실입</th><th>취득세</th><th>R금액</th>
+              <th>방/욕</th><th>복층</th><th>관리</th>
+            </tr>
+          </thead>
+          <tbody id="listBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 지도 탭 ── -->
+  <div class="tab-pane" id="paneMap">
+    <div class="map-guide">
+      <div class="guide-card">
+        <div style="font-size:38px;margin-bottom:10px">🗺️</div>
+        <div style="font-size:17px;font-weight:900;color:var(--cyan);margin-bottom:6px">구글 마이맵으로 지도 보기</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:20px;line-height:1.8">API 키 없이 구글맵에 핀을 꽂는 방법이에요.<br>아래 순서대로 하면 2분이면 됩니다.</div>
+        <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+          <button onclick="doExport();toast('엑셀 저장 완료! 이제 마이맵에서 업로드하세요.')" style="background:var(--blue);border:none;color:#fff;border-radius:8px;padding:11px 20px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">📥 엑셀 내보내기</button>
+          <a href="https://mymaps.google.com" target="_blank" style="background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:11px 20px;font-size:13px;font-weight:700;text-decoration:none;">🌏 마이맵 열기</a>
+        </div>
+      </div>
+      <div class="guide-step"><div class="step-num">1</div><div><div class="step-title">엑셀 내보내기</div><div class="step-desc">위 버튼 클릭 → <code>돌고래하우스_매물_날짜.xlsx</code> 다운로드</div></div></div>
+      <div class="guide-step"><div class="step-num">2</div><div><div class="step-title">구글 마이맵 접속</div><div class="step-desc"><strong style="color:var(--text)">mymaps.google.com</strong> → 구글 로그인 → 새 지도 만들기</div></div></div>
+      <div class="guide-step"><div class="step-num">3</div><div><div class="step-title">엑셀 업로드</div><div class="step-desc">레이어 옆 <strong style="color:var(--text)">가져오기</strong> → 엑셀 파일 선택</div></div></div>
+      <div class="guide-step"><div class="step-num">4</div><div><div class="step-title">컬럼 선택</div><div class="step-desc">위치 열: <code>주소</code> &nbsp;|&nbsp; 제목 열: <code>단지명</code> → 완료</div></div></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- 이미지 오버레이 -->
+<div class="overlay" id="overlay">
+  <button class="overlay-close" onclick="closeOv()">✕</button>
+  <img id="ovImg" src="">
+  <div class="ov-nav">
+    <button onclick="ovNav(-1)">◀</button>
+    <span id="ovIdx" style="font-size:11px;color:var(--muted);align-self:center"></span>
+    <button onclick="ovNav(1)">▶</button>
+  </div>
+</div>
+
+<div class="toast" id="toastEl"></div>
+
+<script>
+// ══════════════════════════════════════════════
+// 데이터
+// ══════════════════════════════════════════════
+const STORE_KEY = 'dh_props_v5';
+const ID_KEY    = 'dh_nid_v5';
+let props  = JSON.parse(localStorage.getItem(STORE_KEY) || '[]');
+let nextId = parseInt(localStorage.getItem(ID_KEY) || '1');
+let imgs   = [];   // 현재 폼 이미지 배열
+let ovImgs = [], ovIdx = 0;
+
+function persist() {
+  localStorage.setItem(STORE_KEY, JSON.stringify(props));
+  localStorage.setItem(ID_KEY, String(nextId));
+  updateStats();
+}
+
+function updateStats() {
+  document.getElementById('stTotal').textContent  = props.length;
+  document.getElementById('stActive').textContent = props.filter(p => p.status === '분양중').length;
+  const totalR = props.reduce((s, p) => s + (parseInt(p.ramt) || 0) * 100, 0);
+  document.getElementById('stR').textContent = totalR ? totalR.toLocaleString() + '만' : '-';
+}
+
+// ══════════════════════════════════════════════
+// 탭
+// ══════════════════════════════════════════════
+function goTab(name, el) {
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('pane' + name.charAt(0).toUpperCase() + name.slice(1)).classList.add('active');
+  el.classList.add('active');
+  if (name === 'list') renderList();
+}
+
+// ══════════════════════════════════════════════
+// 지역 → 검색 키워드 맵
+// ══════════════════════════════════════════════
+const REGION_MAP = {
+  '서울':'서울','인천':'인천',
+  '경기-고양':'경기도 고양시','경기-광명':'경기도 광명시','경기-경기광주':'경기도 광주시',
+  '경기-김포':'경기도 김포시','경기-남양주':'경기도 남양주시','경기-동두천':'경기도 동두천시',
+  '경기-수원':'경기도 수원시','경기-성남':'경기도 성남시','경기-안산':'경기도 안산시',
+  '경기-안성':'경기도 안성시','경기-안양':'경기도 안양시','경기-양주':'경기도 양주시',
+  '경기-양평':'경기도 양평군','경기-여주':'경기도 여주시','경기-연천':'경기도 연천군',
+  '경기-오산':'경기도 오산시','경기-용인':'경기도 용인시','경기-의왕':'경기도 의왕시',
+  '경기-의정부':'경기도 의정부시','경기-이천':'경기도 이천시','경기-과천':'경기도 과천시',
+  '경기-군포':'경기도 군포시','경기-하남':'경기도 하남시','경기-화성':'경기도 화성시',
+  '경기-파주':'경기도 파주시','경기-평택':'경기도 평택시','경기-포천':'경기도 포천시',
+  '충남-아산':'충청남도 아산시','충남-당진':'충청남도 당진시','충남-서산':'충청남도 서산시',
+  '충북-청주':'충청북도 청주시','충북-충주':'충청북도 충주시','경북-구미':'경상북도 구미시',
+};
+
+function onRegionChange() {
+  const r = document.getElementById('fRegion').value;
+  const kw = REGION_MAP[r] || '';
+  const hint = document.getElementById('addrHint');
+  const input = document.getElementById('fAddr');
+  if (kw) {
+    hint.textContent = '(' + kw + ' 기준 검색)';
+    input.placeholder = kw.split(' ').pop() + ' 도로명 입력...';
+  } else {
+    hint.textContent = '';
+    input.placeholder = '지역 선택 후 입력하세요';
+  }
+  input.value = '';
+  document.getElementById('addrStatus').textContent = '';
+  closeDD();
+}
+
+// ══════════════════════════════════════════════
+// 주소 자동완성 (카카오 REST API)
+// REST API 키 - 재발급 후 아래 값 교체
+// ══════════════════════════════════════════════
+const KAK = '2685f0f12223e8cbd57ab1d9fd19e2c8';
+let addrTimer = null, addrList = [], ddSelIdx = -1;
+
+function onAddrInput(val) {
+  clearTimeout(addrTimer);
+  if (val.trim().length < 2) { closeDD(); return; }
+  addrTimer = setTimeout(() => fetchAddr(val.trim()), 350);
+}
+
+async function fetchAddr(q) {
+  const r = document.getElementById('fRegion').value;
+  const prefix = REGION_MAP[r] || '';
+  const full = prefix ? prefix + ' ' + q : q;
+  const dd = document.getElementById('addrDD');
+  dd.innerHTML = '<div class="addr-dd-msg">검색 중...</div>';
+  dd.style.display = 'block';
+  try {
+    // 주소 검색
+    const res = await fetch(
+      'https://dapi.kakao.com/v2/local/search/address.json?query=' + encodeURIComponent(full) + '&size=10',
+      { headers: { Authorization: 'KakaoAK ' + KAK } }
+    );
+    const data = await res.json();
+    let list = (data.documents || []).map(d => ({
+      road: (d.road_address && d.road_address.address_name) || d.address_name || '',
+      jibun: (d.address && d.address.address_name) || ''
+    })).filter(d => d.road);
+
+    if (!list.length) {
+      // 키워드 검색 fallback
+      const res2 = await fetch(
+        'https://dapi.kakao.com/v2/local/search/keyword.json?query=' + encodeURIComponent(full) + '&size=10',
+        { headers: { Authorization: 'KakaoAK ' + KAK } }
+      );
+      const data2 = await res2.json();
+      list = (data2.documents || []).map(d => ({
+        road: d.road_address_name || d.address_name || '',
+        jibun: d.address_name || ''
+      })).filter(d => d.road);
+    }
+
+    addrList = list;
+    renderDD(list);
+  } catch(e) {
+    dd.innerHTML = '<div class="addr-dd-msg">검색 실패. 주소를 직접 입력해주세요.</div>';
+  }
+}
+
+function renderDD(list) {
+  const dd = document.getElementById('addrDD');
+  ddSelIdx = -1;
+  if (!list.length) {
+    dd.innerHTML = '<div class="addr-dd-msg">결과 없음. 더 구체적으로 입력해보세요.</div>';
+    dd.style.display = 'block';
+    return;
+  }
+  dd.innerHTML = list.map((d, i) =>
+    '<div class="addr-dd-item" data-i="' + i + '" onclick="pickAddr(' + i + ')">' +
+    '<div class="addr-dd-road">' + d.road + '</div>' +
+    (d.jibun ? '<div class="addr-dd-jibun">' + d.jibun + '</div>' : '') +
+    '</div>'
+  ).join('');
+  dd.style.display = 'block';
+}
+
+function pickAddr(i) {
+  const d = addrList[i];
+  if (!d) return;
+  document.getElementById('fAddr').value = d.road;
+  document.getElementById('addrStatus').innerHTML = '<span class="geo-ok">✓ ' + d.road + '</span>';
+  closeDD();
+}
+
+function onAddrKey(e) {
+  const items = document.querySelectorAll('.addr-dd-item');
+  if (!items.length) return;
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    ddSelIdx = Math.min(ddSelIdx + 1, items.length - 1);
+    items.forEach((el, i) => el.classList.toggle('sel', i === ddSelIdx));
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    ddSelIdx = Math.max(ddSelIdx - 1, 0);
+    items.forEach((el, i) => el.classList.toggle('sel', i === ddSelIdx));
+  } else if (e.key === 'Enter' && ddSelIdx >= 0) {
+    e.preventDefault(); pickAddr(ddSelIdx);
+  } else if (e.key === 'Escape') {
+    closeDD();
+  }
+}
+
+function closeDD() {
+  const dd = document.getElementById('addrDD');
+  dd.style.display = 'none';
+  dd.innerHTML = '';
+  addrList = []; ddSelIdx = -1;
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('#fAddr') && !e.target.closest('#addrDD')) closeDD();
+});
+
+function copyAddr() {
+  const v = document.getElementById('fAddr').value.trim();
+  if (!v) { toast('주소를 먼저 입력해주세요.', true); return; }
+  navigator.clipboard.writeText(v).then(() => toast('주소 복사 완료 ✓'));
+}
+
+// ══════════════════════════════════════════════
+// OX 토글
+// ══════════════════════════════════════════════
+function toggleOX(btn) {
+  const f = btn.dataset.f;
+  const grp = btn.closest('.ox-group');
+  grp.querySelectorAll('.ox-btn').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  document.getElementById(f).value = btn.classList.contains('o') ? 'O' : 'X';
+}
+
+function setOX(fieldId, val) {
+  document.getElementById(fieldId).value = val;
+  const grp = document.getElementById(fieldId).previousElementSibling;
+  if (!grp || !grp.classList.contains('ox-group')) return;
+  grp.querySelectorAll('.ox-btn').forEach(b => {
+    b.classList.remove('on');
+    if ((val === 'O' && b.classList.contains('o')) || (val === 'X' && b.classList.contains('x'))) {
+      b.classList.add('on');
+    }
+  });
+}
+
+// ══════════════════════════════════════════════
+// R 힌트
+// ══════════════════════════════════════════════
+function showRHint(v) {
+  const n = parseInt(v);
+  document.getElementById('rHint').textContent = n > 0 ? '= ' + (n * 100).toLocaleString() + '만원' : '';
+}
+
+// ══════════════════════════════════════════════
+// 이미지
+// ══════════════════════════════════════════════
+const drop = document.getElementById('imgDrop');
+drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('drag'); });
+drop.addEventListener('dragleave', () => drop.classList.remove('drag'));
+drop.addEventListener('drop', e => { e.preventDefault(); drop.classList.remove('drag'); addImages(e.dataTransfer.files); });
+
+function addImages(files) {
+  Array.from(files).forEach(f => {
+    const r = new FileReader();
+    r.onload = e => { imgs.push(e.target.result); renderImgs(); };
+    r.readAsDataURL(f);
+  });
+}
+
+function renderImgs() {
+  document.getElementById('imgGrid').innerHTML = imgs.map((src, i) =>
+    '<div class="img-thumb"><img src="' + src + '" onclick="openOv(' + i + ')"><button class="img-del" onclick="rmImg(' + i + ')">✕</button></div>'
+  ).join('');
+}
+
+function rmImg(i) { imgs.splice(i, 1); renderImgs(); }
+function openOv(i) { ovImgs = imgs; ovIdx = i; document.getElementById('ovImg').src = ovImgs[i]; document.getElementById('ovIdx').textContent = (i+1)+'/'+ovImgs.length; document.getElementById('overlay').classList.add('on'); }
+function closeOv() { document.getElementById('overlay').classList.remove('on'); }
+function ovNav(d) { ovIdx = (ovIdx + d + ovImgs.length) % ovImgs.length; document.getElementById('ovImg').src = ovImgs[ovIdx]; document.getElementById('ovIdx').textContent = (ovIdx+1)+'/'+ovImgs.length; }
+
+// ══════════════════════════════════════════════
+// 폼
+// ══════════════════════════════════════════════
+function openForm(prop) {
+  goTab('form', document.getElementById('tabForm'));
+  if (prop) {
+    document.getElementById('fTitle').textContent = '✏️ 매물 수정';
+    document.getElementById('fBadge').style.display = '';
+    document.getElementById('fDelBtn').style.display = '';
+    document.getElementById('fId').value = prop.id;
+    document.getElementById('fRegion').value = prop.regionFull || prop.region || '';
+    onRegionChange();
+    document.getElementById('fAddr').value = prop.address || '';
+    document.getElementById('addrStatus').innerHTML = prop.address ? '<span class="geo-ok">✓ ' + prop.address + '</span>' : '';
+    document.getElementById('fName').value = prop.name || '';
+    document.getElementById('fType').value = prop.type || '쓰리룸';
+    document.getElementById('fPrice').value = prop.price || '';
+    document.getElementById('fMortgage').value = prop.mortgage || '';
+    setOX('fTax', prop.tax || 'O');
+    document.getElementById('fTaxAmt').value = prop.taxamt || '';
+    setOX('fTaxSup', prop.taxsup || 'X');
+    document.getElementById('fTaxDetail').value = prop.taxdetail || '';
+    document.getElementById('fRamt').value = prop.ramt || '';
+    showRHint(prop.ramt || 0);
+    document.getElementById('fRmemo').value = prop.rmemo || '';
+    document.getElementById('fRooms').value = prop.rooms || '3';
+    document.getElementById('fBaths').value = prop.baths || '2';
+    setOX('fDuplex', prop.duplex || 'X');
+    document.getElementById('fParking').value = prop.parking || '';
+    document.getElementById('fMemo').value = prop.memo || '';
+    imgs = prop.images ? [...prop.images] : [];
+    renderImgs();
+  } else {
+    resetForm();
+  }
+}
+
+function resetForm() {
+  document.getElementById('fTitle').textContent = '🏠 신규 매물 등록';
+  document.getElementById('fBadge').style.display = 'none';
+  document.getElementById('fDelBtn').style.display = 'none';
+  document.getElementById('fId').value = '';
+  ['fRegion','fAddr','fName','fPrice','fMortgage','fTaxAmt','fTaxDetail','fRamt','fRmemo','fParking','fMemo']
+    .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  document.getElementById('fType').value = '쓰리룸';
+  document.getElementById('fRooms').value = '3';
+  document.getElementById('fBaths').value = '2';
+  document.getElementById('addrHint').textContent = '';
+  document.getElementById('addrStatus').textContent = '';
+  document.getElementById('rHint').textContent = '';
+  setOX('fTax', 'O'); setOX('fTaxSup', 'X'); setOX('fDuplex', 'X');
+  imgs = []; renderImgs(); closeDD();
+}
+
+function saveProperty() {
+  const region = document.getElementById('fRegion').value.trim();
+  const name   = document.getElementById('fName').value.trim();
+  const addr   = document.getElementById('fAddr').value.trim();
+  const price  = document.getElementById('fPrice').value.trim();
+
+  if (!region || !name || !addr || !price) {
+    toast('지역, 단지명, 주소, 분양가는 필수입니다.', true);
+    return;
+  }
+
+  const editId = document.getElementById('fId').value;
+  const addrParts = addr.split(' ');
+  const subregion = addrParts.length >= 2 ? addrParts[1] : '';
+  const regionBase = region.includes('-') ? region.split('-')[0] : region;
+
+  const p = {
+    id:         editId ? parseInt(editId) : nextId++,
+    region:     regionBase,
+    regionFull: region,
+    subregion,
+    address:    addr,
+    name,
+    type:       document.getElementById('fType').value,
+    price:      parseInt(price) || 0,
+    mortgage:   parseInt(document.getElementById('fMortgage').value) || 0,
+    tax:        document.getElementById('fTax').value,
+    taxamt:     parseInt(document.getElementById('fTaxAmt').value) || 0,
+    taxsup:     document.getElementById('fTaxSup').value,
+    taxdetail:  document.getElementById('fTaxDetail').value,
+    r:          'O',
+    ramt:       parseInt(document.getElementById('fRamt').value) || 0,
+    rmemo:      document.getElementById('fRmemo').value,
+    rooms:      document.getElementById('fRooms').value,
+    baths:      document.getElementById('fBaths').value,
+    duplex:     document.getElementById('fDuplex').value,
+    parking:    document.getElementById('fParking').value,
+    status:     '분양중',
+    memo:       document.getElementById('fMemo').value,
+    images:     [...imgs],
+    updatedAt:  new Date().toISOString(),
+  };
+
+  if (editId) {
+    const idx = props.findIndex(x => x.id === parseInt(editId));
+    if (idx >= 0) props[idx] = p; else props.push(p);
+  } else {
+    props.push(p);
+  }
+
+  persist();
+  toast(editId ? '수정 완료 ✓' : '등록 완료 ✓');
+  resetForm();
+  goTab('list', document.getElementById('tabList'));
+}
+
+function delProperty() {
+  const id = parseInt(document.getElementById('fId').value);
+  if (!id) return;
+  if (!confirm('이 매물을 삭제하시겠어요?')) return;
+  props = props.filter(p => p.id !== id);
+  persist();
+  toast('삭제됐습니다.');
+  resetForm();
+  goTab('list', document.getElementById('tabList'));
+}
+
+// ══════════════════════════════════════════════
+// 목록
+// ══════════════════════════════════════════════
+function renderList() {
+  const regionF = document.getElementById('filterRegion').value;
+  const kw      = document.getElementById('filterKw').value.toLowerCase();
+
+  const filtered = props.filter(p => {
+    if (regionF && !p.region.startsWith(regionF)) return false;
+    if (kw && !p.name.toLowerCase().includes(kw) && !(p.address||'').toLowerCase().includes(kw)) return false;
+    return true;
+  });
+
+  document.getElementById('listCount').innerHTML = '<strong>' + filtered.length + '</strong>건';
+
+  const tbody = document.getElementById('listBody');
+  if (!filtered.length) {
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:40px;color:var(--muted)">매물이 없습니다.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(p => {
+    const taxBadge = p.tax === 'O'
+      ? '<span class="badge b-green">✓ ' + fmtW(p.taxamt) + '</span>'
+      : '<span class="badge b-x">✗</span>';
+    const rBadge = p.ramt
+      ? '<span class="r-hl">' + fmtR(p.ramt) + '</span>'
+      : '-';
+    const dup = p.duplex === 'O' ? '<span style="color:var(--gold)">복층</span>' : '일반';
+    const imgDot = p.images && p.images.length ? '<span class="img-dot" title="속지 있음"></span>' : '';
+    return '<tr onclick="openForm(props.find(x=>x.id===' + p.id + '))">' +
+      '<td style="color:var(--muted);font-size:11px">' + p.regionFull + '</td>' +
+      '<td style="font-weight:700">' + p.name + imgDot + '</td>' +
+      '<td style="color:var(--muted);font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (p.address||'-') + '</td>' +
+      '<td class="price-hl">' + fmtW(p.price) + '</td>' +
+      '<td style="color:var(--cyan);font-weight:700">' + fmtW(p.mortgage) + '</td>' +
+      '<td>' + taxBadge + '</td>' +
+      '<td>' + rBadge + '</td>' +
+      '<td>' + p.rooms + '방 ' + p.baths + '욕</td>' +
+      '<td>' + dup + '</td>' +
+      '<td onclick="event.stopPropagation()">' +
+        '<div class="act-btns">' +
+          '<button class="act-btn" onclick="openForm(props.find(x=>x.id===' + p.id + '))">수정</button>' +
+          '<button class="act-btn del" onclick="delFromList(' + p.id + ')">삭제</button>' +
+        '</div>' +
+      '</td>' +
+    '</tr>';
+  }).join('');
+}
+
+function delFromList(id) {
+  if (!confirm('삭제하시겠어요?')) return;
+  props = props.filter(p => p.id !== id);
+  persist();
+  renderList();
+  toast('삭제됐습니다.');
+}
+
+// ══════════════════════════════════════════════
+// 엑셀 내보내기
+// ══════════════════════════════════════════════
+function doExport() {
+  if (!props.length) { toast('매물이 없습니다.', true); return; }
+  const headers = ['지역','세부지역','주소','단지명','타입','분양가(만원)','담보실입(만원)',
+    '취득세지원','취득세금액(만원)','세금지원','세금지원내용',
+    'R금액(×100만원)','R금액실제(만원)','R조건','방수','화장실','복층','주차','비고'];
+  const rows = props.map(p => [
+    p.regionFull||p.region, p.subregion, p.address, p.name, p.type,
+    p.price, p.mortgage,
+    p.tax, p.taxamt, p.taxsup, p.taxdetail,
+    p.ramt, (p.ramt||0)*100, p.rmemo,
+    p.rooms, p.baths, p.duplex, p.parking, p.memo
+  ]);
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+  ws['!cols'] = [10,10,30,20,8,14,14,10,14,8,20,14,14,16,6,8,8,8,20].map(w=>({wch:w}));
+  XLSX.utils.book_append_sheet(wb, ws, '매물목록');
+  XLSX.writeFile(wb, '돌고래하우스_매물_' + new Date().toISOString().slice(0,10) + '.xlsx');
+  toast('엑셀 저장 완료 ✓');
+}
+
+// ══════════════════════════════════════════════
+// 엑셀 불러오기
+// ══════════════════════════════════════════════
+function doImport(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const wb = XLSX.read(e.target.result, { type: 'array' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+    let hRow = -1;
+    for (let i = 0; i < Math.min(5, raw.length); i++) {
+      if (raw[i].some(c => String(c).includes('주소') || String(c).includes('단지') || String(c).includes('분양가'))) {
+        hRow = i; break;
+      }
+    }
+    if (hRow < 0) { toast('헤더를 찾을 수 없습니다.', true); return; }
+    const hs = raw[hRow].map(h => String(h).trim());
+    const get = (row, nm) => { const i = hs.findIndex(h => h.includes(nm)); return i >= 0 ? row[i] : ''; };
+    let cnt = 0;
+    for (let i = hRow + 1; i < raw.length; i++) {
+      const row = raw[i];
+      if (row.every(c => c === '' || c === null)) continue;
+      const name = String(get(row, '단지') || get(row, '건물명') || '').trim();
+      const addr = String(get(row, '주소') || '').trim();
+      if (!name && !addr) continue;
+      const region = String(get(row, '지역') || '').trim() || '기타';
+      const addrParts = addr.split(' ');
+      props.push({
+        id: nextId++,
+        region: region.includes('-') ? region.split('-')[0] : region,
+        regionFull: region,
+        subregion: addrParts.length >= 2 ? addrParts[1] : '',
+        address: addr, name,
+        type:      String(get(row, '타입') || '쓰리룸'),
+        price:     parseInt(get(row, '분양가')) || 0,
+        mortgage:  parseInt(get(row, '담보실입')) || 0,
+        tax:       String(get(row, '취득세지원') || 'X'),
+        taxamt:    parseInt(get(row, '취득세금액')) || 0,
+        taxsup:    String(get(row, '세금지원') || 'X'),
+        taxdetail: String(get(row, '세금지원내용') || ''),
+        r: 'O',
+        ramt:      parseInt(get(row, 'R금액')) || 0,
+        rmemo:     String(get(row, 'R조건') || ''),
+        rooms:     String(get(row, '방수') || '3'),
+        baths:     String(get(row, '화장실') || '2'),
+        duplex:    String(get(row, '복층') || 'X'),
+        parking:   String(get(row, '주차') || ''),
+        status:    '분양중',
+        memo:      String(get(row, '비고') || ''),
+        images:    [],
+        updatedAt: new Date().toISOString(),
+      });
+      cnt++;
+    }
+    persist();
+    toast(cnt + '개 불러오기 완료 ✓');
+    renderList();
+  };
+  reader.readAsArrayBuffer(file);
+  input.value = '';
+}
+
+// ══════════════════════════════════════════════
+// 유틸
+// ══════════════════════════════════════════════
+function fmtW(n) {
+  if (!n) return '-';
+  const num = parseInt(n);
+  if (isNaN(num) || num === 0) return '-';
+  if (num >= 10000) {
+    const 억 = Math.floor(num / 10000), 만 = num % 10000;
+    return 만 > 0 ? 억 + '억 ' + 만.toLocaleString() + '만' : 억 + '억';
+  }
+  return num.toLocaleString() + '만';
+}
+
+function fmtR(n) {
+  const num = parseInt(n);
+  if (isNaN(num) || num === 0) return '-';
+  return fmtW(num * 100);
+}
+
+function toast(msg, isErr) {
+  const el = document.getElementById('toastEl');
+  el.textContent = msg;
+  el.className = 'toast' + (isErr ? ' err' : '') + ' show';
+  setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+// ══════════════════════════════════════════════
+// 초기화
+// ══════════════════════════════════════════════
+updateStats();
+</script>
+</body>
+</html>
