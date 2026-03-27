@@ -433,15 +433,38 @@ code{background:var(--card);padding:1px 6px;border-radius:4px;color:var(--cyan);
 // ══════════════════════════════════════════════
 const STORE_KEY = 'dh_props_v5';
 const ID_KEY    = 'dh_nid_v5';
-let props  = JSON.parse(localStorage.getItem(STORE_KEY) || '[]');
+let props  = [];
 let nextId = parseInt(localStorage.getItem(ID_KEY) || '1');
 let imgs   = [];   // 현재 폼 이미지 배열
 let ovImgs = [], ovIdx = 0;
 
 function persist() {
-  localStorage.setItem(STORE_KEY, JSON.stringify(props));
-  localStorage.setItem(ID_KEY, String(nextId));
+  try {
+    // 이미지는 용량이 크므로 별도 저장 (매물 메타만 먼저 저장)
+    const slim = props.map(p => Object.assign({}, p, { images: [] }));
+    localStorage.setItem(STORE_KEY, JSON.stringify(slim));
+    localStorage.setItem(ID_KEY, String(nextId));
+    // 이미지는 개별 키로 저장
+    props.forEach(p => {
+      if (p.images && p.images.length) {
+        try { localStorage.setItem('dh_img_' + p.id, JSON.stringify(p.images)); } catch(e) {}
+      }
+    });
+  } catch(e) {
+    console.warn('저장 오류:', e);
+    toast('저장 공간 부족. 속지 이미지를 줄여보세요.', true);
+  }
   updateStats();
+}
+
+function loadProps() {
+  const saved = JSON.parse(localStorage.getItem(STORE_KEY) || '[]');
+  // 이미지 복원
+  saved.forEach(p => {
+    const imgs = localStorage.getItem('dh_img_' + p.id);
+    if (imgs) try { p.images = JSON.parse(imgs); } catch(e) {}
+  });
+  return saved;
 }
 
 function updateStats() {
@@ -711,7 +734,7 @@ function resetForm() {
   document.getElementById('addrStatus').textContent = '';
   document.getElementById('rHint').textContent = '';
   setOX('fTax', 'O'); setOX('fTaxSup', 'X'); setOX('fDuplex', 'X');
-  imgs = []; renderImgs(); closeDD();
+  imgs = []; renderImgs();
 }
 
 function saveProperty() {
@@ -777,6 +800,7 @@ function delProperty() {
   if (!id) return;
   showConfirm('이 매물을 삭제할까요?', '삭제', '취소', function() {
     props = props.filter(p => p.id !== id);
+    localStorage.removeItem('dh_img_' + id);
     persist();
     toast('🗑️ 삭제되었습니다.');
     resetForm();
@@ -837,6 +861,7 @@ function renderList() {
 function delFromList(id) {
   showConfirm('이 매물을 삭제할까요?', '삭제', '취소', function() {
     props = props.filter(p => p.id !== id);
+    localStorage.removeItem('dh_img_' + id);
     persist();
     renderList();
     toast('🗑️ 삭제되었습니다.');
@@ -984,6 +1009,7 @@ function showConfirm(msg, okLabel, cancelLabel, onOk) {
 // ══════════════════════════════════════════════
 // 초기화
 // ══════════════════════════════════════════════
+props = loadProps();
 updateStats();
 </script>
 </body>
