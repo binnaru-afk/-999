@@ -371,6 +371,7 @@ tbody td{padding:7px 9px;vertical-align:middle;}
         <div class="ff"><label>지역 *</label><input id="pfRegion" placeholder="예: 인천 부평구"></div>
         <div class="ff"><label>단지명 *</label><input id="pfName" placeholder="예: 그라페"></div>
         <div class="ff"><label>주소</label><input id="pfAddr" placeholder="도로명 주소 (지도 연동용)"></div>
+        <div class="ff"><label>동/읍/면 <span style="font-weight:400;color:var(--muted)">(동 분류용)</span></label><input id="pfDong" placeholder="예: 갈산동, 원종동"></div>
         <div class="ff-row">
           <div class="ff"><label>타입</label>
             <select id="pfType"><option>원룸</option><option>투룸</option><option selected>쓰리룸</option><option>포룸+</option></select>
@@ -1281,10 +1282,53 @@ function mkIcon(clr, active, lbl) {
 
 function initMap() {
   if(leafMap) return;
-  leafMap = L.map('mapEl',{center:[37.47,126.73],zoom:11});
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{
-    attribution:'© OpenStreetMap © CARTO', subdomains:'abcd', maxZoom:20
-  }).addTo(leafMap);
+  leafMap = L.map('mapEl', {center:[37.47,126.73], zoom:11});
+
+  // 타일 서버 후보 목록 (순서대로 시도)
+  const TILES = [
+    {
+      url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+      opts: { subdomains:'abcd', attribution:'© OpenStreetMap © CARTO', maxZoom:20, crossOrigin:true }
+    },
+    {
+      url: 'https://cartodb-basemaps-{s}.global.ssl.fastly.net/rastertiles/voyager/{z}/{x}/{y}.png',
+      opts: { subdomains:'abcd', attribution:'© OpenStreetMap © CARTO', maxZoom:20 }
+    },
+    {
+      url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+      opts: { subdomains:'abc', attribution:'© OpenStreetMap', maxZoom:19 }
+    },
+    {
+      url: 'https://tile.openstreetmap.bzh/kr/{z}/{x}/{y}.png',
+      opts: { attribution:'© OpenStreetMap KR', maxZoom:19 }
+    }
+  ];
+
+  let tileIdx = 0;
+  let tileLayer = null;
+  let errorCount = 0;
+
+  function tryTile(idx) {
+    if(idx >= TILES.length) {
+      // 모두 실패 - 빈 배경이라도 표시
+      console.warn('모든 타일 서버 실패');
+      return;
+    }
+    if(tileLayer) { leafMap.removeLayer(tileLayer); tileLayer = null; }
+    const t = TILES[idx];
+    tileLayer = L.tileLayer(t.url, t.opts);
+    errorCount = 0;
+    tileLayer.on('tileerror', function() {
+      errorCount++;
+      if(errorCount >= 3 && idx < TILES.length - 1) {
+        console.log('타일 서버 전환:', idx+1);
+        tryTile(idx + 1);
+      }
+    });
+    tileLayer.addTo(leafMap);
+  }
+
+  tryTile(0);
 }
 
 function setMapF(val,btn){
