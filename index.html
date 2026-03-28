@@ -3,1014 +3,1335 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>돌고래하우스 | 매물 관리</title>
+<title>돌고래하우스 | 신축빌라 매칭</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&family=Bebas+Neue&display=swap');
 :root{
-  --navy:#0d1b2a;--blue:#1e5fa8;--cyan:#00b4d8;--green:#2dc653;
-  --red:#e63946;--gold:#f4a442;--purple:#9b5de5;
   --bg:#0a1628;--panel:#111f35;--card:#152540;--border:#1e3a5f;
   --text:#e8f1ff;--muted:#7a9cc0;
+  --teal:#00c9a7;--gold:#f4a442;--purple:#9b5de5;
+  --green:#2dc653;--red:#e63946;--blue:#1e5fa8;--cyan:#00b4d8;
+  --navy:#0d1b2a;--orange:#ff6b35;
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);height:100vh;overflow:hidden;display:flex;flex-direction:column;}
 
 /* TOPBAR */
-.topbar{background:linear-gradient(90deg,var(--navy),#0d2240);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;align-items:center;gap:12px;flex-shrink:0;z-index:100;}
-.logo{font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--cyan);letter-spacing:2px;white-space:nowrap;}
+.topbar{background:linear-gradient(90deg,var(--navy),#0d2240);border-bottom:2px solid var(--teal);padding:10px 20px;display:flex;align-items:center;gap:12px;flex-shrink:0;flex-wrap:wrap;}
+.logo{font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--teal);letter-spacing:2px;}
 .logo span{color:var(--gold);}
-.stat-chip{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:4px 12px;font-size:12px;display:flex;align-items:center;gap:5px;white-space:nowrap;}
-.stat-chip .num{font-weight:700;color:var(--cyan);font-size:13px;}
-.topbar-actions{margin-left:auto;display:flex;gap:7px;}
-.tb-btn{background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:6px 13px;font-size:12px;cursor:pointer;font-family:inherit;font-weight:600;transition:all .15s;white-space:nowrap;}
-.tb-btn:hover{border-color:var(--cyan);color:var(--cyan);}
-.tb-btn.primary{background:var(--blue);border-color:var(--blue);color:#fff;}
-.tb-btn.primary:hover{background:var(--cyan);color:var(--navy);}
+.badge-new{font-size:9px;background:var(--teal);color:var(--navy);border-radius:4px;padding:2px 7px;font-weight:900;letter-spacing:.5px;}
+.sc{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:3px 12px;font-size:11px;display:flex;align-items:center;gap:5px;}
+.sc .n{font-weight:900;font-size:13px;}
+.topbar-r{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap;}
+.tbtn{background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:6px 12px;font-size:11px;cursor:pointer;font-family:inherit;font-weight:700;transition:all .15s;white-space:nowrap;}
+.tbtn:hover{border-color:var(--teal);color:var(--teal);}
+.tbtn.add{background:var(--teal);border-color:var(--teal);color:var(--navy);}
+.tbtn.add:hover{opacity:.85;}
 
 /* TABS */
-.tabs{display:flex;background:var(--panel);border-bottom:1px solid var(--border);flex-shrink:0;}
-.tab{padding:10px 22px;font-size:13px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;color:var(--muted);transition:all .15s;}
-.tab.active{color:var(--cyan);border-bottom-color:var(--cyan);}
+.tabs{display:flex;background:var(--panel);border-bottom:1px solid var(--border);flex-shrink:0;overflow-x:auto;}
+.tab{padding:10px 20px;font-size:12px;font-weight:700;cursor:pointer;border-bottom:3px solid transparent;color:var(--muted);transition:all .15s;white-space:nowrap;flex-shrink:0;}
+.tab.active{color:var(--teal);border-bottom-color:var(--teal);}
 
 .content{flex:1;overflow:hidden;display:flex;}
-.tab-pane{display:none;flex:1;overflow:hidden;}
-.tab-pane.active{display:flex;}
+.pane{display:none;flex:1;overflow:hidden;}
+.pane.active{display:flex;}
 
-/* ── 입력폼 ── */
-.form-wrap{flex:1;overflow-y:auto;padding:20px;}
-.form-wrap::-webkit-scrollbar{width:4px;}
-.form-wrap::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
-.form-card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:22px;max-width:820px;margin:0 auto;}
-.form-title{font-size:15px;font-weight:700;color:var(--cyan);margin-bottom:18px;display:flex;align-items:center;gap:8px;}
-.edit-badge{background:rgba(244,164,66,.15);border:1px solid rgba(244,164,66,.3);color:var(--gold);border-radius:6px;padding:3px 10px;font-size:11px;font-weight:700;}
-.form-sec{margin-bottom:18px;}
-.form-sec-lbl{font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);font-weight:700;margin-bottom:9px;padding-bottom:5px;border-bottom:1px solid var(--border);}
-.form-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;}
-.field{display:flex;flex-direction:column;gap:4px;}
-.field label{font-size:11px;color:var(--muted);font-weight:600;}
-.field input,.field select,.field textarea{background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:8px 11px;font-size:13px;font-family:inherit;transition:border-color .15s;width:100%;}
-.field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--cyan);}
-.field input::placeholder{color:var(--muted);opacity:.5;}
-.field select option{background:var(--card);}
-.field textarea{resize:vertical;min-height:55px;}
-.field .hint{font-size:10px;color:var(--muted);margin-top:2px;}
+/* ══ 손님 매칭 탭 ══ */
+.match-wrap{flex:1;display:flex;overflow:hidden;}
 
-/* 주소 자동완성 */
-.addr-wrap{position:relative;margin-top:10px;}
-.addr-row{display:flex;gap:7px;}
-.addr-row input{flex:1;}
-.addr-dd{display:none;position:absolute;top:calc(100% + 2px);left:0;right:60px;background:var(--card);border:1px solid var(--cyan);border-radius:0 0 8px 8px;z-index:999;max-height:220px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.5);}
-.addr-dd-item{padding:10px 13px;cursor:pointer;border-bottom:1px solid var(--border);transition:background .1s;}
-.addr-dd-item:hover,.addr-dd-item.sel{background:rgba(30,95,168,.3);}
-.addr-dd-item:last-child{border-bottom:none;}
-.addr-dd-road{font-size:12px;font-weight:600;color:var(--text);}
-.addr-dd-jibun{font-size:10px;color:var(--muted);margin-top:2px;}
-.addr-dd-msg{padding:12px 13px;font-size:12px;color:var(--muted);}
-.geo-ok{font-size:11px;color:var(--green);margin-top:3px;}
-.geo-fail{font-size:11px;color:var(--red);margin-top:3px;}
-.copy-btn{background:var(--panel);border:1px solid var(--border);color:var(--muted);border-radius:7px;padding:8px 12px;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap;transition:all .15s;flex-shrink:0;}
-.copy-btn:hover{border-color:var(--cyan);color:var(--cyan);}
+/* 왼쪽 손님 패널 */
+.cust-col{width:255px;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;}
+.cust-col-head{padding:10px 12px;border-bottom:1px solid var(--border);flex-shrink:0;}
+.cust-col-title{font-size:11px;font-weight:900;color:var(--teal);margin-bottom:7px;display:flex;justify-content:space-between;}
+.c-search{background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px;font-size:11px;font-family:inherit;width:100%;margin-bottom:6px;}
+.c-search:focus{outline:none;border-color:var(--teal);}
+.c-chips{display:flex;gap:4px;flex-wrap:wrap;}
+.chip{background:var(--card);border:1px solid var(--border);border-radius:4px;padding:2px 8px;font-size:10px;cursor:pointer;color:var(--muted);font-family:inherit;}
+.chip.on{background:rgba(0,201,167,.2);border-color:var(--teal);color:var(--teal);font-weight:700;}
+.cust-list-scroll{flex:1;overflow-y:auto;}
+.cust-list-scroll::-webkit-scrollbar{width:3px;}
+.cust-list-scroll::-webkit-scrollbar-thumb{background:var(--border);}
+.ci{padding:9px 12px;border-bottom:1px solid rgba(30,58,95,.5);cursor:pointer;transition:background .1s;}
+.ci:hover{background:rgba(0,201,167,.06);}
+.ci.sel{background:rgba(0,201,167,.12);border-left:3px solid var(--teal);}
+.ci-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;}
+.ci-phone{font-size:12px;font-weight:700;}
+.ci-pri{font-size:9px;padding:1px 6px;border-radius:8px;font-weight:700;}
+.p-red{background:rgba(230,57,70,.2);color:var(--red);}
+.p-or{background:rgba(255,107,53,.2);color:var(--orange);}
+.p-ye{background:rgba(244,164,66,.2);color:var(--gold);}
+.p-gr{background:rgba(100,120,150,.2);color:var(--muted);}
+.ci-region{font-size:10px;color:var(--muted);margin-bottom:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ci-note{font-size:10px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 
-/* OX 토글 */
-.ox-group{display:flex;gap:5px;}
-.ox-btn{flex:1;padding:8px;border-radius:7px;border:1px solid var(--border);background:var(--card);color:var(--muted);font-size:13px;font-weight:700;cursor:pointer;text-align:center;transition:all .15s;font-family:inherit;}
+/* 가운데 매칭 결과 */
+.match-center{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.match-top{padding:12px 16px;border-bottom:1px solid var(--border);flex-shrink:0;}
+.no-sel-msg{padding:50px;text-align:center;color:var(--muted);font-size:13px;}
+.sel-info{display:none;}
+.sel-info.on{display:block;}
+.si-row1{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:7px;}
+.si-phone{font-size:15px;font-weight:900;}
+.si-region{font-size:11px;color:var(--muted);}
+.si-chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:7px;}
+.si-chip{background:var(--card);border:1px solid var(--border);border-radius:5px;padding:3px 9px;font-size:11px;}
+.si-chip span{color:var(--muted);font-size:10px;}
+.si-note{font-size:11px;color:var(--gold);background:rgba(244,164,66,.08);border:1px solid rgba(244,164,66,.2);border-radius:6px;padding:6px 10px;line-height:1.6;}
+
+/* 분석 바 */
+.analysis-bar{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
+.ab{display:flex;align-items:center;gap:5px;background:var(--card);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:11px;}
+.ab.ok{border-color:rgba(45,198,83,.4);background:rgba(45,198,83,.08);}
+.ab.warn{border-color:rgba(244,164,66,.4);background:rgba(244,164,66,.08);}
+.ab.bad{border-color:rgba(230,57,70,.4);background:rgba(230,57,70,.08);}
+
+/* 결과 스크롤 */
+.match-scroll{flex:1;overflow-y:auto;padding:10px 14px;}
+.match-scroll::-webkit-scrollbar{width:4px;}
+.match-scroll::-webkit-scrollbar-thumb{background:var(--border);}
+
+/* 섹션 헤더 */
+.sec-hd{display:flex;align-items:center;gap:7px;margin:12px 0 7px;padding:7px 11px;border-radius:8px;font-size:12px;font-weight:700;}
+.sec-zero{background:rgba(45,198,83,.1);border:1px solid rgba(45,198,83,.25);color:var(--green);}
+.sec-low{background:rgba(0,201,167,.1);border:1px solid rgba(0,201,167,.25);color:var(--teal);}
+.sec-mid{background:rgba(155,93,229,.1);border:1px solid rgba(155,93,229,.25);color:var(--purple);}
+.sec-all{background:rgba(30,95,168,.12);border:1px solid rgba(30,95,168,.25);color:var(--cyan);}
+.sec-old{background:rgba(230,57,70,.08);border:1px solid rgba(230,57,70,.3);color:var(--red);}
+
+/* 매물 카드 (매칭 결과) */
+.rc{background:var(--panel);border:1px solid var(--border);border-radius:9px;padding:11px 14px;margin-bottom:7px;cursor:pointer;transition:all .12s;position:relative;}
+.rc:hover{border-color:var(--teal);transform:translateX(2px);}
+.rc.g1{border-color:var(--gold);background:rgba(244,164,66,.06);}
+.rc.g2{border-color:var(--cyan);}
+.rc.g3{border-color:var(--purple);}
+.rc-rank{position:absolute;top:8px;right:10px;font-size:17px;}
+.rc-name{font-size:13px;font-weight:900;margin-bottom:2px;}
+.rc-region{font-size:10px;color:var(--muted);margin-bottom:6px;}
+.rc-price-row{display:flex;align-items:baseline;gap:10px;margin-bottom:4px;}
+.rc-price{font-size:16px;font-weight:900;color:var(--teal);}
+.rc-monthly{font-size:11px;font-weight:700;}
+.rc-mort{font-size:10px;color:var(--muted);margin-bottom:5px;}
+.tags{display:flex;gap:3px;flex-wrap:wrap;margin-bottom:6px;}
+.tag{font-size:9px;padding:2px 6px;border-radius:3px;font-weight:700;}
+.t-gr{background:rgba(45,198,83,.15);color:var(--green);}
+.t-te{background:rgba(0,201,167,.15);color:var(--teal);}
+.t-pu{background:rgba(155,93,229,.15);color:var(--purple);}
+.t-go{background:rgba(244,164,66,.15);color:var(--gold);}
+.t-re{background:rgba(230,57,70,.15);color:var(--red);}
+.t-bl{background:rgba(30,95,168,.2);color:var(--cyan);}
+.rc-why{margin-top:6px;padding-top:6px;border-top:1px solid var(--border);}
+.rc-why-item{font-size:10px;color:var(--muted);display:flex;gap:4px;}
+.why-dot{color:var(--green);}
+
+/* 구옥 추천 배너 */
+.old-banner{background:rgba(230,57,70,.07);border:1px solid rgba(230,57,70,.3);border-radius:9px;padding:12px 14px;font-size:12px;color:var(--muted);line-height:1.8;margin-bottom:8px;}
+.old-banner strong{color:var(--red);}
+
+/* ══ 매물 탭 ══ */
+.prop-wrap{flex:1;display:flex;overflow:hidden;}
+
+/* 지역 사이드바 */
+.region-sidebar{width:120px;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;}
+.rsb-head{padding:10px 10px 6px;font-size:10px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid var(--border);}
+.rsb-scroll{flex:1;overflow-y:auto;}
+.ri{padding:9px 10px;border-bottom:1px solid rgba(30,58,95,.4);cursor:pointer;transition:background .1s;}
+.ri:hover{background:rgba(0,201,167,.07);}
+.ri.sel{background:rgba(0,201,167,.14);border-left:3px solid var(--teal);}
+.ri-name{font-size:12px;font-weight:700;margin-bottom:2px;}
+.ri-count{font-size:10px;color:var(--muted);}
+
+/* 매물 메인 영역 */
+.prop-main{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.prop-toolbar{padding:9px 12px;border-bottom:1px solid var(--border);display:flex;gap:7px;flex-shrink:0;flex-wrap:wrap;align-items:center;}
+.prop-toolbar select,.prop-toolbar input{background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px;font-size:11px;font-family:inherit;}
+.prop-toolbar input{width:150px;}
+.prop-lc{margin-left:auto;font-size:11px;color:var(--muted);}
+.prop-lc strong{color:var(--cyan);}
+
+/* 매물 카드 그리드 */
+.prop-grid{flex:1;overflow-y:auto;padding:12px;}
+.prop-grid::-webkit-scrollbar{width:4px;}
+.prop-grid::-webkit-scrollbar-thumb{background:var(--border);}
+.prop-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;}
+.pc{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px;cursor:pointer;transition:all .15s;position:relative;}
+.pc:hover{border-color:var(--teal);transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,.3);}
+.pc-region{font-size:10px;color:var(--muted);margin-bottom:4px;}
+.pc-name{font-size:14px;font-weight:900;margin-bottom:2px;}
+.pc-addr{font-size:10px;color:var(--muted);margin-bottom:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.pc-price{font-size:18px;font-weight:900;color:var(--teal);}
+.pc-monthly{font-size:11px;font-weight:700;margin-top:1px;margin-bottom:7px;}
+.pc-mort{font-size:11px;color:var(--muted);}
+.pc-tags{display:flex;gap:4px;flex-wrap:wrap;margin-top:7px;}
+.pc-edit{position:absolute;top:10px;right:10px;background:var(--card);border:1px solid var(--border);color:var(--muted);border-radius:5px;padding:3px 8px;font-size:10px;cursor:pointer;font-family:inherit;opacity:0;transition:opacity .15s;}
+.pc:hover .pc-edit{opacity:1;}
+
+/* 매물 폼 패널 */
+.prop-form-col{width:290px;background:var(--panel);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;}
+.pfc-head{padding:10px 13px;border-bottom:1px solid var(--border);font-size:12px;font-weight:700;color:var(--teal);display:flex;align-items:center;justify-content:space-between;}
+.pfc-body{flex:1;overflow-y:auto;padding:11px 13px;}
+.pfc-body::-webkit-scrollbar{width:3px;}
+.pfc-body::-webkit-scrollbar-thumb{background:var(--border);}
+.ff{margin-bottom:9px;}
+.ff label{font-size:10px;color:var(--muted);font-weight:700;display:block;margin-bottom:3px;}
+.ff input,.ff select,.ff textarea{background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:7px 9px;font-size:12px;font-family:inherit;width:100%;}
+.ff input:focus,.ff select:focus,.ff textarea:focus{outline:none;border-color:var(--teal);}
+.ff input::placeholder{color:var(--muted);opacity:.5;}
+.ff textarea{resize:vertical;min-height:55px;}
+.ff-row{display:flex;gap:6px;}
+.ff-row .ff{flex:1;}
+.ox{display:flex;gap:4px;}
+.ox-btn{flex:1;padding:6px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--muted);font-size:12px;font-weight:700;cursor:pointer;text-align:center;transition:all .12s;font-family:inherit;}
 .ox-btn.o.on{background:rgba(45,198,83,.2);border-color:var(--green);color:var(--green);}
-.ox-btn.x.on{background:rgba(230,57,70,.12);border-color:var(--red);color:var(--red);}
+.ox-btn.x.on{background:rgba(230,57,70,.1);border-color:var(--red);color:var(--red);}
+.monthly-hint{background:rgba(0,201,167,.07);border:1px solid rgba(0,201,167,.2);border-radius:6px;padding:7px 10px;font-size:12px;color:var(--teal);font-weight:700;margin-bottom:9px;}
+.monthly-hint small{display:block;color:var(--muted);font-size:9px;font-weight:400;margin-top:2px;}
+.pfc-foot{padding:10px 13px;border-top:1px solid var(--border);display:flex;gap:6px;}
+.btn-save{flex:1;background:var(--teal);border:none;color:var(--navy);border-radius:7px;padding:9px;font-size:12px;font-weight:900;cursor:pointer;font-family:inherit;}
+.btn-del{background:rgba(230,57,70,.1);border:1px solid rgba(230,57,70,.3);color:var(--red);border-radius:7px;padding:9px 13px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;}
 
-/* 이미지 업로드 */
-.img-drop{border:2px dashed var(--border);border-radius:9px;padding:14px;text-align:center;cursor:pointer;transition:all .2s;background:var(--card);font-size:12px;color:var(--muted);}
-.img-drop:hover,.img-drop.drag{border-color:var(--cyan);color:var(--cyan);}
-.img-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:6px;margin-top:8px;}
-.img-thumb{position:relative;aspect-ratio:1;border-radius:6px;overflow:hidden;}
-.img-thumb img{width:100%;height:100%;object-fit:cover;cursor:pointer;}
-.img-del{position:absolute;top:2px;right:2px;background:rgba(0,0,0,.75);color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;}
+/* ══ 지도 탭 ══ */
+.map-wrap{flex:1;display:flex;overflow:hidden;}
+.map-left-col{width:250px;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;}
+.mlc-head{padding:10px 12px;border-bottom:1px solid var(--border);flex-shrink:0;}
+.mlc-title{font-size:11px;font-weight:900;color:var(--teal);margin-bottom:7px;}
+.mlc-filter{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;}
+.mlc-sel{background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 8px;font-size:11px;font-family:inherit;width:100%;}
+.map-prop-list{flex:1;overflow-y:auto;}
+.map-prop-list::-webkit-scrollbar{width:3px;}
+.map-prop-list::-webkit-scrollbar-thumb{background:var(--border);}
+.mpi{padding:9px 12px;border-bottom:1px solid rgba(30,58,95,.4);cursor:pointer;transition:background .1s;}
+.mpi:hover{background:rgba(0,201,167,.07);}
+.mpi-name{font-size:12px;font-weight:700;margin-bottom:2px;}
+.mpi-region{font-size:10px;color:var(--muted);margin-bottom:3px;}
+.mpi-price{font-size:13px;font-weight:900;color:var(--teal);}
+#mapEl{flex:1;}
+.map-detail-col{width:240px;background:var(--panel);border-left:1px solid var(--border);display:none;flex-direction:column;overflow:hidden;flex-shrink:0;}
+.map-detail-col.on{display:flex;}
+.mdc-body{flex:1;overflow-y:auto;padding:13px;}
+.mdc-body::-webkit-scrollbar{width:3px;}
+.mdc-body::-webkit-scrollbar-thumb{background:var(--border);}
+.map-close-btn{position:absolute;top:8px;right:8px;background:var(--card);border:1px solid var(--border);color:var(--muted);width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px;z-index:5;}
 
-.form-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:18px;padding-top:14px;border-top:1px solid var(--border);}
-.btn{padding:9px 22px;border-radius:7px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;border:none;transition:all .15s;}
-.btn-cancel{background:var(--card);color:var(--muted);border:1px solid var(--border);}
-.btn-save{background:var(--blue);color:#fff;}
-.btn-save:hover{background:var(--cyan);color:var(--navy);}
-.btn-del{background:rgba(230,57,70,.12);color:var(--red);border:1px solid rgba(230,57,70,.3);}
-.btn-del:hover{background:var(--red);color:#fff;}
+/* ══ 고객DB 탭 ══ */
+.cdb-wrap{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.cdb-tb{padding:9px 12px;border-bottom:1px solid var(--border);display:flex;gap:6px;flex-shrink:0;align-items:center;flex-wrap:wrap;}
+.cdb-tb select,.cdb-tb input{background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px;font-size:11px;font-family:inherit;}
+.cdb-scroll{flex:1;overflow:auto;}
+.cdb-scroll::-webkit-scrollbar{width:4px;height:4px;}
+.cdb-scroll::-webkit-scrollbar-thumb{background:var(--border);}
+table{width:100%;border-collapse:collapse;font-size:11px;min-width:900px;}
+thead th{background:var(--panel);padding:7px 9px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;border-bottom:1px solid var(--border);white-space:nowrap;position:sticky;top:0;z-index:5;}
+tbody tr{border-bottom:1px solid rgba(30,58,95,.3);cursor:pointer;transition:background .1s;}
+tbody tr:hover{background:rgba(0,201,167,.06);}
+tbody td{padding:7px 9px;vertical-align:middle;}
 
-/* ── 목록 ── */
-.list-view{flex:1;display:flex;flex-direction:column;overflow:hidden;}
-.list-toolbar{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;gap:7px;align-items:center;flex-shrink:0;flex-wrap:wrap;}
-.list-toolbar select,.list-toolbar input{background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:6px 10px;font-size:12px;font-family:inherit;}
-.list-toolbar input{width:170px;}
-.list-count{margin-left:auto;font-size:12px;color:var(--muted);}
-.list-count strong{color:var(--cyan);}
-.table-wrap{flex:1;overflow:auto;}
-.table-wrap::-webkit-scrollbar{width:4px;height:4px;}
-.table-wrap::-webkit-scrollbar-thumb{background:var(--border);}
-table{width:100%;border-collapse:collapse;font-size:12px;min-width:900px;}
-thead th{background:var(--panel);padding:9px 11px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;border-bottom:1px solid var(--border);white-space:nowrap;position:sticky;top:0;z-index:5;}
-tbody tr{border-bottom:1px solid rgba(30,58,95,.4);cursor:pointer;transition:background .1s;}
-tbody tr:hover{background:rgba(30,95,168,.1);}
-tbody td{padding:9px 11px;vertical-align:middle;}
-.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;}
-.b-green{background:rgba(45,198,83,.15);color:var(--green);border:1px solid rgba(45,198,83,.3);}
-.b-red{background:rgba(230,57,70,.15);color:var(--red);border:1px solid rgba(230,57,70,.3);}
-.b-gold{background:rgba(244,164,66,.15);color:var(--gold);border:1px solid rgba(244,164,66,.3);}
-.b-x{background:rgba(100,100,120,.1);color:#666;}
-.price-hl{font-weight:700;color:var(--cyan);}
-.r-hl{font-weight:700;color:var(--purple);}
-.act-btns{display:flex;gap:4px;}
-.act-btn{background:var(--card);border:1px solid var(--border);color:var(--muted);border-radius:5px;padding:3px 8px;font-size:11px;cursor:pointer;font-family:inherit;transition:all .1s;}
-.act-btn:hover{border-color:var(--cyan);color:var(--cyan);}
-.act-btn.del:hover{border-color:var(--red);color:var(--red);}
-.img-dot{width:6px;height:6px;background:var(--gold);border-radius:50%;display:inline-block;margin-left:4px;vertical-align:middle;}
+/* 모달 */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;display:none;align-items:center;justify-content:center;padding:20px;}
+.modal-bg.on{display:flex;}
+.modal-box{background:var(--panel);border:1px solid var(--border);border-radius:13px;padding:22px;max-width:440px;width:100%;max-height:85vh;overflow-y:auto;position:relative;}
+.modal-box::-webkit-scrollbar{width:4px;}
+.modal-box::-webkit-scrollbar-thumb{background:var(--border);}
+.modal-x{position:absolute;top:10px;right:12px;background:var(--card);border:1px solid var(--border);color:var(--muted);width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:13px;}
 
-/* ── 지도(마이맵 가이드) ── */
-.map-guide{flex:1;overflow-y:auto;padding:28px;display:flex;flex-direction:column;align-items:center;gap:20px;}
-.guide-card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:24px 28px;max-width:580px;width:100%;text-align:center;}
-.guide-step{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px 18px;max-width:580px;width:100%;display:flex;gap:14px;align-items:flex-start;}
-.step-num{background:var(--blue);color:#fff;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:12px;flex-shrink:0;}
-.step-title{font-weight:700;font-size:13px;margin-bottom:3px;}
-.step-desc{font-size:12px;color:var(--muted);line-height:1.7;}
-code{background:var(--card);padding:1px 6px;border-radius:4px;color:var(--cyan);font-size:11px;}
+/* Confirm */
+.cfm-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10000;display:none;align-items:center;justify-content:center;}
+.cfm-bg.on{display:flex;}
+.cfm-box{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:24px 28px;min-width:260px;text-align:center;}
+.cfm-msg{font-size:14px;font-weight:700;margin-bottom:18px;}
+.cfm-btns{display:flex;gap:9px;justify-content:center;}
+.cfm-ok{background:var(--red);border:none;color:#fff;border-radius:7px;padding:9px 24px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;}
+.cfm-cancel{background:var(--card);border:1px solid var(--border);color:var(--muted);border-radius:7px;padding:9px 24px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;}
 
-/* 이미지 오버레이 */
-.overlay{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:9999;display:none;align-items:center;justify-content:center;flex-direction:column;}
-.overlay.on{display:flex;}
-.overlay img{max-width:90vw;max-height:85vh;border-radius:8px;object-fit:contain;}
-.overlay-close{position:absolute;top:14px;right:18px;background:var(--card);border:1px solid var(--border);color:var(--text);width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;}
-.ov-nav{display:flex;gap:10px;margin-top:12px;}
-.ov-nav button{background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:6px 16px;font-size:12px;cursor:pointer;font-family:inherit;}
-
-
-/* 커스텀 Confirm */
-.cfm-bg{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:10000;display:flex;align-items:center;justify-content:center;}
-.cfm-box{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:28px 32px;min-width:280px;text-align:center;box-shadow:0 16px 48px rgba(0,0,0,.6);}
-.cfm-msg{font-size:15px;font-weight:700;color:var(--text);margin-bottom:20px;}
-.cfm-btns{display:flex;gap:10px;justify-content:center;}
-.cfm-ok{background:var(--red);border:none;color:#fff;border-radius:8px;padding:10px 28px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;}
-.cfm-ok:hover{opacity:.85;}
-.cfm-cancel{background:var(--card);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:10px 28px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;}
-.cfm-cancel:hover{color:var(--text);}
-
-/* 토스트 */
-.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(70px);background:var(--green);color:#fff;padding:10px 22px;border-radius:8px;font-size:13px;font-weight:700;z-index:9999;transition:transform .25s;pointer-events:none;}
+/* Toast */
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(70px);background:var(--green);color:#fff;padding:10px 22px;border-radius:8px;font-size:13px;font-weight:700;z-index:9999;transition:transform .25s;pointer-events:none;}
 .toast.show{transform:translateX(-50%) translateY(0);}
 .toast.err{background:var(--red);}
+@keyframes bounce{0%{transform:translateY(0) scale(1);}35%{transform:translateY(-14px) scale(1.12);}65%{transform:translateY(-4px) scale(1.05);}100%{transform:translateY(0) scale(1);}}
 </style>
 </head>
 <body>
 
 <!-- TOPBAR -->
 <div class="topbar">
-  <div class="logo">🐬 돌고래<span>하우스</span></div>
-  <div class="stat-chip">전체 <span class="num" id="stTotal">0</span></div>
-  <div class="stat-chip">분양중 <span class="num" id="stActive" style="color:var(--green)">0</span></div>
-  <div class="stat-chip" style="color:var(--purple)">R합계 <span class="num" id="stR" style="color:var(--purple)">-</span></div>
-  <div class="topbar-actions">
-    <button class="tb-btn" onclick="doExport()">📥 엑셀 저장</button>
-    <button class="tb-btn" onclick="document.getElementById('xlsxInput').click()">📂 엑셀 불러오기</button>
-    <input type="file" id="xlsxInput" accept=".xlsx,.xls" style="display:none" onchange="doImport(this)">
-    <button class="tb-btn primary" onclick="openForm(null)">＋ 매물 등록</button>
+  <div class="logo">🐬 돌고래<span>하우스</span> <span class="badge-new">신축</span></div>
+  <div class="sc">매물 <span class="n" id="stProp" style="color:var(--teal)">0</span></div>
+  <div class="sc">전액대출 <span class="n" id="stZero" style="color:var(--green)">0</span></div>
+  <div class="sc">소액실입 <span class="n" id="stLow" style="color:var(--cyan)">0</span></div>
+  <div class="sc">고객 <span class="n" id="stCust" style="color:var(--gold)">0</span></div>
+  <div class="topbar-r">
+    <button class="tbtn" onclick="document.getElementById('xlsxProp').click()">📂 매물 엑셀</button>
+    <input type="file" id="xlsxProp" accept=".xlsx,.xls" style="display:none" onchange="loadPropXlsx(this)">
+    <button class="tbtn" onclick="document.getElementById('xlsxCust').click()">📂 고객DB</button>
+    <input type="file" id="xlsxCust" accept=".xlsx,.xls" style="display:none" onchange="loadCustXlsx(this)">
+    <button class="tbtn" onclick="doExport()">📥 내보내기</button>
+    <button class="tbtn add" onclick="openPropForm(null);goTab('prop',document.getElementById('tabProp'))">＋ 매물 등록</button>
   </div>
 </div>
 
 <!-- TABS -->
 <div class="tabs">
-  <div class="tab active" id="tabForm" onclick="goTab('form',this)">✏️ 매물 입력</div>
-  <div class="tab" id="tabList" onclick="goTab('list',this)">📋 매물 목록</div>
-  <div class="tab" id="tabMap" onclick="goTab('map',this)">🗺️ 지도 연동</div>
+  <div class="tab active" id="tabMatch" onclick="goTab('match',this)">🎯 손님 매칭</div>
+  <div class="tab" id="tabProp"  onclick="goTab('prop',this)">🏠 매물 관리</div>
+  <div class="tab" id="tabCust"  onclick="goTab('cust',this)">👥 고객 DB</div>
+  <div class="tab" id="tabMap"   onclick="goTab('map',this)">🗺️ 매물 지도</div>
 </div>
 
 <div class="content">
 
-  <!-- ── 폼 탭 ── -->
-  <div class="tab-pane active" id="paneForm">
-    <div class="form-wrap">
-      <div class="form-card">
-        <div class="form-title">
-          <span id="fTitle">🏠 신규 매물 등록</span>
-          <span class="edit-badge" id="fBadge" style="display:none">수정 중</span>
+<!-- ══ 손님 매칭 ══ -->
+<div class="pane active" id="paneMatch">
+  <div class="match-wrap">
+    <!-- 손님 목록 -->
+    <div class="cust-col">
+      <div class="cust-col-head">
+        <div class="cust-col-title">👥 손님 목록 <span id="custCnt" style="color:var(--muted);font-weight:400;font-size:10px">0명</span></div>
+        <input class="c-search" id="custSearch" placeholder="🔍 번호/지역 검색" oninput="renderCustList()">
+        <div class="c-chips">
+          <button class="chip on" onclick="setCF(this,'')">전체</button>
+          <button class="chip" onclick="setCF(this,'🔴')">🔴</button>
+          <button class="chip" onclick="setCF(this,'🟠')">🟠</button>
+          <button class="chip" onclick="setCF(this,'🟡')">🟡</button>
         </div>
-        <input type="hidden" id="fId">
-
-        <!-- 기본정보 -->
-        <div class="form-sec">
-          <div class="form-sec-lbl">📍 기본 정보</div>
-          <div class="form-grid">
-            <div class="field">
-              <label>지역 *</label>
-              <div style="display:flex;gap:8px;flex-wrap:wrap">
-                <select id="fRegion" onchange="onRegionChange()" style="flex:1;min-width:110px">
-                  <option value="">-- 광역 --</option>
-                  <option>서울</option>
-                  <option>인천</option>
-                  <option>경기</option>
-                  <option>충청</option>
-                  <option>경북</option>
-                  <option>기타</option>
-                </select>
-                <select id="fDistrict" onchange="onDistrictChange()" style="flex:1;min-width:140px;display:none">
-                  <option value="">-- 세부지역 --</option>
-                </select>
-              </div>
-            </div>
-            <div class="field">
-              <label>단지/건물명 *</label>
-              <input id="fName" placeholder="예: 검단 스카이빌">
-            </div>
-            <div class="field">
-              <label>타입</label>
-              <select id="fType">
-                <option>원룸</option><option>투룸</option><option selected>쓰리룸</option><option>포룸+</option>
-              </select>
-            </div>
-          </div>
-
-          <!-- 주소 검색 (카카오 우편번호 서비스) -->
-          <div class="addr-wrap">
-            <div class="field" style="gap:4px">
-              <label>도로명 주소 * <span id="addrHint" style="color:var(--muted);font-weight:400;font-size:10px">(건물명·도로명 모두 검색 가능)</span></label>
-              <div class="addr-row">
-                <input id="fAddr" placeholder="🔍 검색 버튼을 눌러 주소를 찾으세요" readonly
-                  style="cursor:pointer;background:var(--card)" onclick="openAddrSearch()">
-                <button class="copy-btn" onclick="openAddrSearch()" style="background:var(--blue);color:#fff;border-color:var(--blue);padding:8px 14px;font-weight:700">🔍 검색</button>
-              </div>
-              <div id="addrStatus"></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 가격 -->
-        <div class="form-sec">
-          <div class="form-sec-lbl">💰 가격 (만원)</div>
-          <div class="form-grid">
-            <div class="field">
-              <label>분양가 *</label>
-              <input id="fPrice" type="number" placeholder="예: 28000">
-            </div>
-            <div class="field">
-              <label>담보실입</label>
-              <input id="fMortgage" type="number" placeholder="예: 25000">
-            </div>
-          </div>
-        </div>
-
-        <!-- 지원 -->
-        <div class="form-sec">
-          <div class="form-sec-lbl">🏦 세금 지원</div>
-          <div class="form-grid">
-            <div class="field">
-              <label>취득세 지원</label>
-              <div class="ox-group">
-                <button class="ox-btn o on" data-f="fTax" onclick="toggleOX(this)">O</button>
-                <button class="ox-btn x" data-f="fTax" onclick="toggleOX(this)">X</button>
-              </div>
-              <input type="hidden" id="fTax" value="O">
-            </div>
-            <div class="field">
-              <label>취득세 금액 (만원)</label>
-              <input id="fTaxAmt" type="number" placeholder="예: 280">
-            </div>
-            <div class="field">
-              <label>세금 지원</label>
-              <div class="ox-group">
-                <button class="ox-btn o" data-f="fTaxSup" onclick="toggleOX(this)">O</button>
-                <button class="ox-btn x on" data-f="fTaxSup" onclick="toggleOX(this)">X</button>
-              </div>
-              <input type="hidden" id="fTaxSup" value="X">
-            </div>
-            <div class="field">
-              <label>세금 지원 내용</label>
-              <input id="fTaxDetail" placeholder="예: 취득세+등기비 지원">
-            </div>
-          </div>
-        </div>
-
-        <!-- R -->
-        <div class="form-sec">
-          <div class="form-sec-lbl">💜 R (수수료)</div>
-          <div class="form-grid">
-            <div class="field">
-              <label>R 금액 <span style="font-weight:400;color:var(--muted)">(단위: 100만원)</span></label>
-              <input id="fRamt" type="number" placeholder="예: 20" oninput="showRHint(this.value)">
-              <span class="hint" id="rHint"></span>
-            </div>
-            <div class="field">
-              <label>R 조건</label>
-              <input id="fRmemo" placeholder="예: 계약금 완납 후">
-            </div>
-          </div>
-        </div>
-
-        <!-- 사양 -->
-        <div class="form-sec">
-          <div class="form-sec-lbl">🏗️ 사양</div>
-          <div class="form-grid">
-            <div class="field">
-              <label>방 수</label>
-              <select id="fRooms"><option>1</option><option>2</option><option selected>3</option><option>4</option></select>
-            </div>
-            <div class="field">
-              <label>화장실</label>
-              <select id="fBaths"><option>1</option><option selected>2</option><option>3</option></select>
-            </div>
-            <div class="field">
-              <label>복층</label>
-              <div class="ox-group">
-                <button class="ox-btn o" data-f="fDuplex" onclick="toggleOX(this)">O</button>
-                <button class="ox-btn x on" data-f="fDuplex" onclick="toggleOX(this)">X</button>
-              </div>
-              <input type="hidden" id="fDuplex" value="X">
-            </div>
-            <div class="field">
-              <label>주차</label>
-              <input id="fParking" placeholder="예: 1대">
-            </div>
-          </div>
-        </div>
-
-        <!-- 속지 -->
-        <div class="form-sec">
-          <div class="form-sec-lbl">🖼️ 속지</div>
-          <div class="img-drop" id="imgDrop" onclick="document.getElementById('imgInput').click()">
-            📎 클릭하거나 드래그해서 속지 이미지 첨부 (여러 장 가능)
-          </div>
-          <input type="file" id="imgInput" accept="image/*" multiple style="display:none" onchange="addImages(this.files)">
-          <div class="img-grid" id="imgGrid"></div>
-        </div>
-
-        <!-- 비고 -->
-        <div class="form-sec">
-          <div class="form-sec-lbl">📌 비고</div>
-          <div class="field">
-            <textarea id="fMemo" placeholder="추가 메모"></textarea>
-          </div>
-        </div>
-
-        <div class="form-actions">
-          <button class="btn btn-del" id="fDelBtn" style="display:none" onclick="delProperty()">🗑️ 삭제</button>
-          <button class="btn btn-cancel" onclick="resetForm()">초기화</button>
-          <button class="btn btn-save" onclick="saveProperty()">💾 저장</button>
+      </div>
+      <div class="cust-list-scroll" id="custList">
+        <div style="padding:20px;text-align:center;font-size:11px;color:var(--muted)">
+          고객DB 엑셀을<br>불러오세요
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- ── 목록 탭 ── -->
-  <div class="tab-pane" id="paneList">
-    <div class="list-view">
-      <div class="list-toolbar">
-        <select id="filterRegion" onchange="renderList()">
-          <option value="">전체 지역</option>
-          <option>서울</option><option>인천</option><option>경기</option><option>충청</option><option>기타</option>
-        </select>
-        <input id="filterKw" placeholder="🔍 단지명/주소 검색" oninput="renderList()">
-        <span class="list-count" id="listCount"><strong>0</strong>건</span>
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>지역</th><th>단지명</th><th>주소</th>
-              <th>분양가</th><th>담보실입</th><th>취득세</th><th>R금액</th>
-              <th>방/욕</th><th>복층</th><th>관리</th>
-            </tr>
-          </thead>
-          <tbody id="listBody"></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── 지도 탭 ── -->
-  <div class="tab-pane" id="paneMap">
-    <div class="map-guide">
-      <div class="guide-card">
-        <div style="font-size:38px;margin-bottom:10px">🗺️</div>
-        <div style="font-size:17px;font-weight:900;color:var(--cyan);margin-bottom:6px">구글 마이맵으로 지도 보기</div>
-        <div style="font-size:12px;color:var(--muted);margin-bottom:20px;line-height:1.8">API 키 없이 구글맵에 핀을 꽂는 방법이에요.<br>아래 순서대로 하면 2분이면 됩니다.</div>
-        <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
-          <button onclick="doExport();toast('엑셀 저장 완료! 이제 마이맵에서 업로드하세요.')" style="background:var(--blue);border:none;color:#fff;border-radius:8px;padding:11px 20px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">📥 엑셀 내보내기</button>
-          <a href="https://mymaps.google.com" target="_blank" style="background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:11px 20px;font-size:13px;font-weight:700;text-decoration:none;">🌏 마이맵 열기</a>
+    <!-- 매칭 결과 -->
+    <div class="match-center">
+      <div class="match-top">
+        <div class="no-sel-msg" id="noSel">← 손님을 선택하면<br>신축빌라를 자동 매칭해드립니다</div>
+        <div class="sel-info" id="selInfo">
+          <div class="si-row1">
+            <div><div class="si-phone" id="siPhone"></div><div class="si-region" id="siRegion"></div></div>
+            <span class="ci-pri" id="siBadge"></span>
+          </div>
+          <div class="si-chips" id="siChips"></div>
+          <div class="si-note" id="siNote"></div>
+          <div class="analysis-bar" id="analysisBar"></div>
         </div>
       </div>
-      <div class="guide-step"><div class="step-num">1</div><div><div class="step-title">엑셀 내보내기</div><div class="step-desc">위 버튼 클릭 → <code>돌고래하우스_매물_날짜.xlsx</code> 다운로드</div></div></div>
-      <div class="guide-step"><div class="step-num">2</div><div><div class="step-title">구글 마이맵 접속</div><div class="step-desc"><strong style="color:var(--text)">mymaps.google.com</strong> → 구글 로그인 → 새 지도 만들기</div></div></div>
-      <div class="guide-step"><div class="step-num">3</div><div><div class="step-title">엑셀 업로드</div><div class="step-desc">레이어 옆 <strong style="color:var(--text)">가져오기</strong> → 엑셀 파일 선택</div></div></div>
-      <div class="guide-step"><div class="step-num">4</div><div><div class="step-title">컬럼 선택</div><div class="step-desc">위치 열: <code>주소</code> &nbsp;|&nbsp; 제목 열: <code>단지명</code> → 완료</div></div></div>
+      <div class="match-scroll" id="matchScroll">
+        <div style="text-align:center;padding:50px;color:var(--muted);font-size:12px">손님을 선택하세요</div>
+      </div>
     </div>
   </div>
-
 </div>
 
+<!-- ══ 매물 관리 ══ -->
+<div class="pane" id="paneProp">
+  <div class="prop-wrap">
+    <!-- 지역 사이드바 -->
+    <div class="region-sidebar">
+      <div class="rsb-head">지역</div>
+      <div class="rsb-scroll" id="regionList"></div>
+    </div>
+    <!-- 매물 그리드 -->
+    <div class="prop-main">
+      <div class="prop-toolbar">
+        <select id="flFilter" onchange="renderPropGrid()">
+          <option value="">전체</option>
+          <option value="zero">전액대출만</option>
+          <option value="low">실입2천↓</option>
+          <option value="tax">취득세↓</option>
+          <option value="duplex">복층만</option>
+          <option value="r">R포함</option>
+        </select>
+        <input id="flKw" placeholder="🔍 단지명 검색" oninput="renderPropGrid()">
+        <span class="prop-lc" id="propLc"><strong>0</strong>건</span>
+      </div>
+      <div class="prop-grid">
+        <div class="prop-cards" id="propCards"></div>
+      </div>
+    </div>
+    <!-- 매물 폼 -->
+    <div class="prop-form-col">
+      <div class="pfc-head">
+        <span id="pfcTitle">➕ 신규 등록</span>
+        <button class="tbtn" style="font-size:10px" onclick="openPropForm(null)">초기화</button>
+      </div>
+      <div class="pfc-body">
+        <input type="hidden" id="pfId">
+        <div class="ff"><label>지역 *</label><input id="pfRegion" placeholder="예: 인천 부평구"></div>
+        <div class="ff"><label>단지명 *</label><input id="pfName" placeholder="예: 그라페"></div>
+        <div class="ff"><label>주소</label><input id="pfAddr" placeholder="도로명 주소 (지도 연동용)"></div>
+        <div class="ff-row">
+          <div class="ff"><label>타입</label>
+            <select id="pfType"><option>원룸</option><option>투룸</option><option selected>쓰리룸</option><option>포룸+</option></select>
+          </div>
+          <div class="ff"><label>복층</label>
+            <div class="ox">
+              <button class="ox-btn o" data-f="pfDuplex" onclick="setOX(this)">O</button>
+              <button class="ox-btn x on" data-f="pfDuplex" onclick="setOX(this)">X</button>
+            </div>
+            <input type="hidden" id="pfDuplex" value="X">
+          </div>
+        </div>
+        <div class="ff-row">
+          <div class="ff"><label>분양가(만원) *</label><input id="pfPrice" type="number" placeholder="28800" oninput="updateMonthly()"></div>
+          <div class="ff"><label>담보실입(만원)</label><input id="pfMort" type="number" placeholder="3000" oninput="updateMonthly()"></div>
+        </div>
+        <div class="monthly-hint" id="monthlyHint">
+          월납입 계산 대기 중
+          <small>기준: 대출 1억 = 월 50만원</small>
+        </div>
+        <div class="ff-row">
+          <div class="ff"><label>취득세 지원</label>
+            <div class="ox">
+              <button class="ox-btn o" data-f="pfTax" onclick="setOX(this)">O</button>
+              <button class="ox-btn x on" data-f="pfTax" onclick="setOX(this)">X</button>
+            </div>
+            <input type="hidden" id="pfTax" value="X">
+          </div>
+          <div class="ff"><label>R 금액(만원)</label><input id="pfR" type="number" placeholder="2000"></div>
+        </div>
+        <div class="ff"><label>특징/메모</label>
+          <textarea id="pfMemo" placeholder="역세권, GTX, 재개발, 전액대출 가능, 생애최초 등"></textarea>
+        </div>
+      </div>
+      <div class="pfc-foot">
+        <button class="btn-del" id="pfDelBtn" style="display:none" onclick="delProp()">삭제</button>
+        <button class="btn-save" onclick="saveProp()">💾 저장</button>
+      </div>
+    </div>
+  </div>
+</div>
 
-<!-- 커스텀 Confirm -->
-<div class="cfm-bg" id="cfmBg" style="display:none">
+<!-- ══ 고객 DB ══ -->
+<div class="pane" id="paneCust">
+  <div class="cdb-wrap">
+    <div class="cdb-tb">
+      <select id="cdbPri" onchange="renderCustDB()">
+        <option value="">전체 우선순위</option>
+        <option value="🔴">🔴 최우선</option><option value="🟠">🟠 상</option>
+        <option value="🟡">🟡 중</option><option value="❌">❌ 불가</option><option value="✅">✅ 완료</option>
+      </select>
+      <input id="cdbKw" placeholder="🔍 번호/지역/메모" oninput="renderCustDB()" style="width:200px">
+      <span class="prop-lc" id="cdbLc"><strong>0</strong>명</span>
+      <button class="tbtn" style="margin-left:auto" onclick="document.getElementById('xlsxCust').click()">📂 다시 불러오기</button>
+    </div>
+    <div class="cdb-scroll">
+      <table>
+        <thead><tr>
+          <th>No</th><th>문의일</th><th>연락처</th><th>유입</th><th>희망지역</th>
+          <th>신용KCB</th><th>기대출</th><th>가용현금</th><th>무입주</th>
+          <th>우선순위</th><th>특이사항</th><th>이사일정</th><th>현황</th>
+        </tr></thead>
+        <tbody id="custBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 매물 지도 ══ -->
+<div class="pane" id="paneMap">
+  <div class="map-wrap">
+    <div class="map-left-col">
+      <div class="mlc-head">
+        <div class="mlc-title">🗺️ 신축빌라 지도</div>
+        <div class="mlc-filter" id="mapFilter">
+          <button class="chip on" onclick="setMapF('all',this)">전체</button>
+          <button class="chip" onclick="setMapF('zero',this)">전액대출</button>
+          <button class="chip" onclick="setMapF('tax',this)">취득세↓</button>
+          <button class="chip" onclick="setMapF('duplex',this)">복층</button>
+        </div>
+        <select class="mlc-sel" id="mapRegF" onchange="renderMap()">
+          <option value="">전체 지역</option>
+          <option>인천</option><option>서울</option><option>경기</option>
+          <option>부천</option><option>수원</option><option>파주</option><option>광주</option>
+        </select>
+      </div>
+      <div class="map-prop-list" id="mapPropList"></div>
+      <div style="padding:10px 12px;border-top:1px solid var(--border);flex-shrink:0;">
+        <button onclick="doExport()" style="background:var(--teal);border:none;color:var(--navy);border-radius:6px;padding:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;width:100%;">📥 마이맵 엑셀</button>
+      </div>
+    </div>
+    <div id="mapEl"></div>
+    <div class="map-detail-col" id="mapDetailCol" style="position:relative;">
+      <button class="map-close-btn" onclick="document.getElementById('mapDetailCol').classList.remove('on')">✕</button>
+      <div class="mdc-body" id="mdcBody"></div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /content -->
+
+<!-- 모달 -->
+<div class="modal-bg" id="modalBg" onclick="if(event.target===this)closeModal()">
+  <div class="modal-box">
+    <button class="modal-x" onclick="closeModal()">✕</button>
+    <div id="modalContent"></div>
+  </div>
+</div>
+
+<!-- Confirm -->
+<div class="cfm-bg" id="cfmBg">
   <div class="cfm-box">
     <div class="cfm-msg" id="cfmMsg"></div>
     <div class="cfm-btns">
-      <button class="cfm-ok" id="cfmOk"></button>
-      <button class="cfm-cancel" id="cfmCancel"></button>
+      <button class="cfm-ok" id="cfmOk">삭제</button>
+      <button class="cfm-cancel" onclick="document.getElementById('cfmBg').classList.remove('on')">취소</button>
     </div>
-  </div>
-</div>
-
-<!-- 이미지 오버레이 -->
-<div class="overlay" id="overlay">
-  <button class="overlay-close" onclick="closeOv()">✕</button>
-  <img id="ovImg" src="">
-  <div class="ov-nav">
-    <button onclick="ovNav(-1)">◀</button>
-    <span id="ovIdx" style="font-size:11px;color:var(--muted);align-self:center"></span>
-    <button onclick="ovNav(1)">▶</button>
   </div>
 </div>
 
 <div class="toast" id="toastEl"></div>
 
 <script>
-// ══════════════════════════════════════════════
+// ════════════════════════════════════════
 // 데이터
-// ══════════════════════════════════════════════
-const STORE_KEY = 'dh_props_v5';
-const ID_KEY    = 'dh_nid_v5';
-let props  = [];
-let nextId = parseInt(localStorage.getItem(ID_KEY) || '1');
-let imgs   = [];   // 현재 폼 이미지 배열
-let ovImgs = [], ovIdx = 0;
+// ════════════════════════════════════════
+const PROP_KEY = 'dh_new_v3';
+const CUST_KEY = 'dh_cust_v3';
 
-function persist() {
-  try {
-    // 이미지는 용량이 크므로 별도 저장 (매물 메타만 먼저 저장)
-    const slim = props.map(p => Object.assign({}, p, { images: [] }));
-    localStorage.setItem(STORE_KEY, JSON.stringify(slim));
-    localStorage.setItem(ID_KEY, String(nextId));
-    // 이미지는 개별 키로 저장
-    props.forEach(p => {
-      if (p.images && p.images.length) {
-        try { localStorage.setItem('dh_img_' + p.id, JSON.stringify(p.images)); } catch(e) {}
-      }
-    });
-  } catch(e) {
-    console.warn('저장 오류:', e);
-    toast('저장 공간 부족. 속지 이미지를 줄여보세요.', true);
-  }
-  updateStats();
+const INIT_PROPS = [
+  {id:1,region:'인천 부평구',addr:'인천 부평구 부평문화로116번길 16',name:'그라페',type:'쓰리룸',price:28800,mortgage:7000,r:2000,tax:'X',taxsup:'O',duplex:'X',rooms:'3',baths:'2',memo:'전세대 OP, 대형3룸, 자주식주차 100%, 분양가: 28,800만~45,100만 (층별 상이, 3~9층)',monthly:1.1},
+  {id:2,region:'인천 부평구',addr:'인천 부평구 경인로890번길 56',name:'디베리움',type:'쓰리룸',price:33000,mortgage:5000,r:2000,tax:'O',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'더블역세권, 자주식주차 100%, 희사채 가능. 분양가: 33,000~35,000만 (잔여호실 기준)',monthly:1.4},
+  {id:3,region:'인천 부평구',addr:'인천 부평구 충선로73번길 27',name:'라온주택',type:'쓰리룸',price:24000,mortgage:2000,r:2000,tax:'X',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'마지막 1호실, 재개발 예정구역',monthly:1.1},
+  {id:4,region:'인천 부평구',addr:'인천 부평구 장제로156번길 21',name:'미라클',type:'쓰리룸',price:23500,mortgage:0,r:1500,tax:'O',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'1001호 하나남음 담보실입 70%',monthly:1.2},
+  {id:5,region:'인천 부평구',addr:'인천 부평구 장제로 55',name:'부평 늘해랑 APT',type:'쓰리룸',price:35200,mortgage:4000,r:2000,tax:'O',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'GTX-B 부평역 도보 4분, APT+OP 133세대',monthly:1.6},
+  {id:6,region:'인천 부평구',addr:'인천 부평구 장제로 120',name:'부평 아트리움 APT',type:'쓰리룸',price:36900,mortgage:8000,r:2000,tax:'O',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'GTX-B 착공완료, 부평역 도보 10분, 총 126세대',monthly:1.4},
+  {id:7,region:'인천 부평구',addr:'인천 부평구 부평문화로153번길 40',name:'삼성빌라',type:'쓰리룸',price:24000,mortgage:2000,r:1500,tax:'O',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'501호 마지막 1개(방2/화1/테라스), 재개발 예정',monthly:1.1},
+  {id:8,region:'인천 부평구',addr:'인천 부평구 경원대로1431번길 34',name:'센터빌',type:'쓰리룸',price:28800,mortgage:2000,r:2000,tax:'O',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'총 112세대, 주거용 OP+주택 혼합',monthly:1.3},
+  {id:9,region:'인천 부평구',addr:'인천 부평구 시장로 84',name:'스카이시티',type:'쓰리룸',price:33900,mortgage:8000,r:2500,tax:'O',taxsup:'X',duplex:'X',rooms:'3',baths:'1',memo:'901호 하나남음, 가계대출 70%',monthly:1.3},
+  {id:10,region:'인천 부평구',addr:'인천 부평구 경인로1012번길 21',name:'해피리치빌',type:'쓰리룸',price:29900,mortgage:8000,r:2500,tax:'X',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'401호 하나 남음',monthly:1.1},
+  {id:11,region:'인천 부평구',addr:'인천 부평구 일신로40번길 53',name:'금강팰리스',type:'쓰리룸',price:24000,mortgage:28000,r:0,tax:'X',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'더블인정X, 분양광고 금지, 분양가: 24,000~35,500만 (잔여: 202·303·401·501·502호), 리베이트 업가능함',monthly:-0.2},
+  {id:12,region:'인천 중구',addr:'인천 중구 서해대로449번길 27',name:'누벨르시티',type:'쓰리룸',price:23000,mortgage:1000,r:1500,tax:'X',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'신포역·송의역 더블역세권, 저층 무입가능',monthly:1.1},
+  {id:13,region:'인천',addr:'인천 미추홀구 미추홀대로598번길 63',name:'더 아이브',type:'쓰리룸',price:33000,mortgage:3000,r:3000,tax:'X',taxsup:'O',duplex:'X',rooms:'3',baths:'2',memo:'더블X, 풀옵션(에어컨·냉장고·세탁기 등)',monthly:1.5},
+  {id:14,region:'인천 미추홀구',addr:'인천 미추홀구 한나루로586번길 108',name:'동부미소지음4차',type:'쓰리룸',price:25900,mortgage:2500,r:1500,tax:'X',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'실입 3천 이하',monthly:1.2},
+  {id:15,region:'인천 미추홀구',addr:'인천 미추홀구 경인로 452',name:'센트레뷰 오피스텔',type:'쓰리룸',price:26000,mortgage:7000,r:1000,tax:'X',taxsup:'O',duplex:'X',rooms:'3',baths:'2',memo:'인천2호선 석바위시장역 도보 3초, 주안2·4동 재정비촉진지구',monthly:0.9},
+  {id:16,region:'인천 부평구',addr:'인천 부평구 장제로 88',name:'아레테',type:'쓰리룸',price:39700,mortgage:4000,r:2000,tax:'O',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'더블인정X, 부평역 초역세권, 오피스텔 198세대',monthly:1.8},
+  {id:17,region:'인천 부평구',addr:'인천 부평구 부평문화로106번길 24',name:'이모시온',type:'쓰리룸',price:26000,mortgage:2000,r:2000,tax:'X',taxsup:'O',duplex:'X',rooms:'3',baths:'2',memo:'트리플역세권, GTX-B 노선, 오피스텔 216세대, 분양가·광고 노출금지',monthly:1.2},
+  {id:18,region:'인천 미추홀구',addr:'인천 미추홀구 경인북길 309',name:'이안애',type:'쓰리룸',price:22900,mortgage:3000,r:2000,tax:'O',taxsup:'X',duplex:'O',rooms:'3',baths:'2',memo:'더블X, 분양가 노출금지, 전세대 에어컨2대·자주식주차100% 분양가: 22,900~26,900만 (잔여: 201·303·502·503호) 담보실입: 3,000만~ (기준층) / ',monthly:1.0},
+  {id:19,region:'인천 미추홀구',addr:'인천 미추홀구 아암대로 67',name:'DS타워',type:'쓰리룸',price:33800,mortgage:3000,r:2000,tax:'X',taxsup:'O',duplex:'X',rooms:'3',baths:'2',memo:'당일계약 할인이벤트, 고층 바다뷰·테라스, 인하대병원 5분',monthly:1.5},
+  {id:20,region:'인천 서구',addr:'인천 서구 승학로299번길 1-8',name:'SK타운빌',type:'쓰리룸',price:33200,mortgage:30000,r:1500,tax:'X',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'더블인정X, 서구청역·아시아드 5분, 자주식주차100% 분양가: 33,200~40,900만 (잔여: 201·202·301·302·401·502호)',monthly:0.2},
+  {id:21,region:'인천 미추홀구',addr:'인천 미추홀구 문학길70번길 1',name:'골드파크',type:'쓰리룸',price:23000,mortgage:0,r:2000,tax:'O',taxsup:'X',duplex:'O',rooms:'3',baths:'2',memo:'1동 401호 복층 마지막 1개, 담보 무입가능',monthly:1.1},
+  {id:22,region:'인천 남동구',addr:'인천 남동구 남동대로898번길 21-12',name:'글램하우스',type:'쓰리룸',price:27900,mortgage:1000,r:2000,tax:'X',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'더블인정X, 분양가 노출금지, 간석오거리역·석천사거리역 인접',monthly:1.3},
+  {id:23,region:'인천 계양구',addr:'인천 계양구 안산로 36',name:'남강스타팰리스',type:'쓰리룸',price:33500,mortgage:5000,r:1500,tax:'X',taxsup:'O',duplex:'O',rooms:'4',baths:'2',memo:'202호 OP, 1개 잔여/온라인 가격노출금지, 계산역 3분, 세금지원 900만, 신용대출 가능',monthly:1.4},
+  {id:24,region:'인천 서구',addr:'인천 서구 청마로51번안길 3',name:'더 라이프스테이',type:'쓰리룸',price:29900,mortgage:4300,r:1500,tax:'O',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'왕테라스/텃밭,인터넷 광고 노출금지, 완정역 도보 5분, 검암역 자차 4분',monthly:1.3},
+  {id:25,region:'인천 미추홀구',addr:'인천 미추홀구 소성로294번길 17-32',name:'로얄캐슬',type:'쓰리룸',price:33500,mortgage:4000,r:2000,tax:'X',taxsup:'X',duplex:'O',rooms:'3',baths:'2',memo:'더블인정X, 삼성시스템에어컨 4대, 복층 충고높음',monthly:1.5},
+  {id:26,region:'인천 미추홀구',addr:'인천 미추홀구 경인로156번길 9-22',name:'베누시아',type:'쓰리룸',price:25000,mortgage:2000,r:1500,tax:'O',taxsup:'X',duplex:'X',rooms:'1',baths:'1',memo:'방/욕: 미기재 (OP 15세대) 비고: 분양가 외부반출 금지, 1호선 제물포역 도보 5분, 회사채 가능',monthly:1.1},
+  {id:27,region:'인천 미추홀구',addr:'인천 미추홀구 문학길 106',name:'보담하우스',type:'쓰리룸',price:30000,mortgage:6000,r:1500,tax:'X',taxsup:'X',duplex:'O',rooms:'3',baths:'2',memo:'더블X, 인천터미널역·문학경기장역, 잔여: 1동 202·501호, 2동 201·501·502호',monthly:1.2},
+  {id:28,region:'인천',addr:'인천 미추홀구 수봉안길57번길 8-1',name:'삼성아트빌',type:'쓰리룸',price:12700,mortgage:5000,r:1000,tax:'X',taxsup:'X',duplex:'X',rooms:'3',baths:'1',memo:'더블인정X, 엘베없음, 자주식주차100%, 즉시입주가능',monthly:0.4},
+  {id:29,region:'인천 남동구',addr:'인천 남동구 간석로72번길 6',name:'솔리움',type:'쓰리룸',price:26700,mortgage:2500,r:2000,tax:'O',taxsup:'O',duplex:'X',rooms:'3',baths:'2',memo:'분양가·실입주금 노출금지, 간석오거리역 500m, 외국인 동일조건',monthly:1.2},
+  {id:30,region:'인천 미추홀구',addr:'인천 미추홀구 문학길 60',name:'SI PARK',type:'쓰리룸',price:33000,mortgage:5000,r:2000,tax:'X',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'드레스룸·펜트리룸·수납장·에어컨5개, 헬스장·놀이터, 입주자회의실 담보실입: 5,000만 (기준층), 8,000만 (고층)',monthly:1.4},
+  {id:31,region:'인천 계양구',addr:'인천 계양구 계산로86번길 5',name:'아크로팰리스 OP',type:'쓰리룸',price:30900,mortgage:1800,r:1500,tax:'O',taxsup:'O',duplex:'X',rooms:'3',baths:'2',memo:'OP 잔여 3개(11층 전부), GTX-D 확정호재, 계산전통시장 도보1분, 전용25평 15 (일부호실), 20 (고층)',monthly:1.5},
+  {id:32,region:'인천 부평구',addr:'인천 부평구 평천로 132',name:'안에안 ANEAN',type:'쓰리룸',price:33000,mortgage:3000,r:1500,tax:'X',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'저층특가 33,000만·고층특가 35,000만 각1세대씩, 갈산역·신곡역 더블역세권, 경인고속도로 부평IC인접',monthly:1.5},
+  {id:33,region:'인천 서구',addr:'인천 서구 청라루비로 81',name:'에이펙스 APEX',type:'쓰리룸',price:60000,mortgage:0,r:0,tax:'X',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'풀옵션(에어컨·냉장고·세탁기·식세기 등), 1층 스타벅스·약국, 청라 고급 오피',monthly:3.0},
+  {id:34,region:'인천 서구',addr:'인천 서구 청마로34번길 33',name:'온누리정원',type:'쓰리룸',price:27800,mortgage:3000,r:2000,tax:'O',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'온라인 광고·분양가 노출금지, 인천2호선 완정역 도보권, 11단지 18세대',monthly:1.2},
+  {id:35,region:'인천 남동구',addr:'인천 남동구 남동대로922번길 15',name:'월드메르디앙 베네가',type:'쓰리룸',price:29500,mortgage:3100,r:2000,tax:'O',taxsup:'O',duplex:'X',rooms:'3',baths:'2',memo:'외국인 동일, 간석오거리역 도보 2분(180m), GTX-B 인천시청역 차량 5분',monthly:1.3},
+  {id:36,region:'인천 미추홀구',addr:'인천 미추홀구 경인로 26',name:'이안 테라리움 제물포',type:'쓰리룸',price:32500,mortgage:28400,r:1300,tax:'O',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'9~18층 냉장고 옵션, 냉장고X시 32,500만',monthly:0.2},
+  {id:37,region:'인천 미추홀구',addr:'인천 미추홀구 문학길 94',name:'인영N',type:'쓰리룸',price:33000,mortgage:5000,r:2000,tax:'X',taxsup:'X',duplex:'X',rooms:'1',baths:'1',memo:'손님 있으면 미리 연락 요청',monthly:1.4},
+  {id:38,region:'인천 남동구',addr:'인천 남동구 남동대로777번길 25',name:'카르페디엠',type:'쓰리룸',price:22500,mortgage:3000,r:2000,tax:'X',taxsup:'O',duplex:'X',rooms:'3',baths:'2',memo:'더블X, 인터넷 가격·실입 비공개, 구월 시청옆, 총 171세대 준공완료',monthly:1.0},
+  {id:39,region:'인천 부평구',addr:'인천 부평구 새갈로 39',name:'테라스',type:'쓰리룸',price:31700,mortgage:2000,r:1800,tax:'X',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'전세대 테라스, 단지형 3개동 40세대, 갈산역 도보 10분 실입 2000~1억',monthly:1.5},
+  {id:40,region:'인천 계양구',addr:'인천 계양구 마장로560번길 20',name:'투에이치 디그니티',type:'쓰리룸',price:29200,mortgage:6500,r:2000,tax:'X',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'잔여 202·302·501·502호, 각방 시스템에어컨4대, 자동중문',monthly:1.1},
+  {id:41,region:'인천 미추홀구',addr:'인천 미추홀구 경인로435번길 33',name:'품에지은',type:'쓰리룸',price:25500,mortgage:3000,r:4000,tax:'X',taxsup:'O',duplex:'X',rooms:'3',baths:'2',memo:'잔여 7개호실, 총 40세대, 시스템에어컨·공기순환기·파우더룸 기본',monthly:1.1},
+  {id:42,region:'인천 미추홀구',addr:'인천 미추홀구 인하로 368',name:'프라임 주안',type:'쓰리룸',price:30000,mortgage:25000,r:1500,tax:'X',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'1호 아외테라스, 자주식주차100%, 관교중·관교여중·남인천여중 인접',monthly:0.2},
+  {id:43,region:'인천 서구',addr:'인천 서구 가현로117번길 84',name:'헤리티지',type:'쓰리룸',price:27500,mortgage:0,r:0,tax:'O',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'1동·2동, 1동401호 테라스/넓은2룸, 2동502호 테라스특가  지금 안하고 있고 곧 재개할거라함',monthly:1.4},
+  {id:44,region:'인천 부평구',addr:'인천 부평구 백범로442번길 15',name:'호방사랑채',type:'쓰리룸',price:19600,mortgage:3000,r:1500,tax:'X',taxsup:'X',duplex:'X',rooms:'3',baths:'1',memo:'동암역 250m 도보4분, 전세대 시스템에어컨',monthly:0.8},
+  {id:45,region:'인천 미추홀구',addr:'인천 미추홀구 한나루로599번길 5',name:'휴먼시티',type:'쓰리룸',price:32500,mortgage:7000,r:1500,tax:'X',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'더블X 3.3%공제, 감정가 3억5천, 모자란건 1년정도 등기 압류하고 무이자 잔여: 201·202·301·302·401·402·501·502·701호',monthly:1.3},
+  {id:46,region:'인천 남동구',addr:'인천 남동구 구월로64번길 33',name:'CM하우스',type:'쓰리룸',price:34900,mortgage:3000,r:1900,tax:'X',taxsup:'X',duplex:'X',rooms:'4',baths:'2',memo:'하이엔드 고급빌라, 인천시청역 470m 도보5분 GTX-B 2025년 8월착공, 잔여: 301·403·501·502·503호 분양가 할인가 기준임',monthly:1.6},
+  {id:47,region:'인천 서구',addr:'인천 서구 승학로422번길 8',name:'DH더테라스3',type:'쓰리룸',price:35900,mortgage:5000,r:1500,tax:'X',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'잔여: 302·401·402호, 전열교환기·시스템에어컨·강마루시공·일체형비데',monthly:1.5},
+  {id:48,region:'인천 서구',addr:'인천 서구 승학로421번길 8-1',name:'DH빌리지2',type:'쓰리룸',price:23900,mortgage:3000,r:1500,tax:'X',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'잔여: 201·202·203·301·302·502호 (취소선 제외) 루바창·음식물분쇄기·강마루시공',monthly:1.0},
+  {id:49,region:'인천 서구',addr:'인천 서구 드림로305번길 61',name:'DS테라스',type:'쓰리룸',price:40,mortgage:15000,r:0,tax:'X',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'3동 102호 잔여 1개, 문단속·소등 요청',monthly:-0.7},
+  {id:50,region:'경기 화성시',addr:'경기 화성시 효행구 봉담읍 와우로 23-23',name:'슈팅스타',type:'쓰리룸',price:29000,mortgage:1000,r:1500,tax:'X',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'세입자 4월 중순에 나감 초/중/고 도보 가능  ☆ 봉담 도시개발 지구 인접 호재 ☆ 신분당선 연장 개통 호재, 화성IC / 봉담IC 진입 용이 ☆ 관공서, 대학교, 산책로 등 다',monthly:1.4},
+  {id:51,region:'경기 포천시',addr:'경기 포천시 넘마을길 39',name:'힐탑',type:'쓰리룸',price:29900,mortgage:0,r:2500,tax:'X',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'전액대출가능, 선단IC 1km, 포천세중고속도로, 제2외곽순환도로, 7호선 연장호자 1층 테라스 , 전세대 옥상 루프탑테라스',monthly:1.5},
+  {id:52,region:'경기 포천시',addr:'경기 포천시 어룡길 5',name:'퍼스트지',type:'쓰리룸',price:28500,mortgage:2500,r:2000,tax:'X',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'담보실입 2500~3000',monthly:1.3},
+  {id:53,region:'경기 포천시',addr:'경기 포천시 넘마을길 33',name:'지유 팰리스 A동',type:'쓰리룸',price:31900,mortgage:0,r:2000,tax:'X',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'루프탑, 선단(Cmri, 7호선연장개통예정 이마트, 대형식자재마트 차량 3분',monthly:1.6},
+  {id:54,region:'경기 포천시',addr:'경기 포천시 정자동1길 77-2',name:'제이팰리스',type:'쓰리룸',price:23900,mortgage:1000,r:1500,tax:'X',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'전용 84 담보 무입주',monthly:1.1},
+  {id:55,region:'경기 포천시',addr:'경기 포천시 넘마을길 15',name:'메종 드라르떼',type:'쓰리룸',price:26800,mortgage:0,r:2000,tax:'X',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'',monthly:1.3},
+  {id:56,region:'경기 안산시',addr:'경기 포천시 넘마을길 41',name:'강남아트빌',type:'쓰리룸',price:30500,mortgage:0,r:2000,tax:'X',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'선단 ic 1km/ 7호선확정 / 이마트 / 다이소 / 스타벅스 / 맥도날드 / 대형마트3개 / 초등학교 도보3분 시스템에어컨 4대 / 각방팬트리 / 드레스룸 / 팬트리룸 / 다용',monthly:1.5},
+  {id:57,region:'경기 파주시',addr:'경기 파주시 하우2길 80-4',name:'레이크원',type:'포룸+',price:44800,mortgage:2000,r:0,tax:'X',taxsup:'X',duplex:'O',rooms:'4',baths:'2',memo:'5동 101~402호 분양중 / 2동(239-240), 1동(분양완료) / 14개동 112세대 / 가전 풀옵션 / GTX-A 예정 / 스타필드빌리지 2025.10 오픈',monthly:2.1},
+  {id:58,region:'경기',addr:'경기 파주시 하우고개길 236-15',name:'리벤시아',type:'쓰리룸',price:39900,mortgage:0,r:0,tax:'X',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'잔여 호수202(39,900) / 301·302(40,900) / 401·402(49,900) — 101·102·201 분양완료 운정역 1.6km / 야당역 1km / GTX-A ',monthly:2.0},
+  {id:59,region:'경기',addr:'경기 파주시 하우고개길 278-11',name:'블리스32',type:'쓰리룸',price:34900,mortgage:2000,r:2000,tax:'X',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'잔여 호수1동 302호 / 2동 101호 — 3동·4동 분양완료 야당역 도보 15분 / GTX-A / 서해선 운정 연장 예정 / 숲세권 / 천연 대리석 아일랜드식탁',monthly:1.6},
+  {id:60,region:'경기',addr:'경기 파주시 하우3길 47-15',name:'아진포레스트',type:'쓰리룸',price:38900,mortgage:6000,r:3000,tax:'O',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'잔여 호수 101동: 102·201·202·302·402호 / 102동: 102·201·202·301·302호 (취소선 = 분양완료) GTX-A 개통완료 / 스타필드 2025 오픈',monthly:1.6},
+  {id:61,region:'경기 파주시',addr:'경기 파주시 하우고개길 332',name:'운정삼성캐슬 12차',type:'포룸+',price:54800,mortgage:140300,r:3000,tax:'X',taxsup:'X',duplex:'X',rooms:'4',baths:'2',memo:'잔여 호수1201동 401호 1세대 냉장고 3대 / 자꾸지(노천탕) / 테라스 데크(합성데크) 운정역 1.1km / 야당역 1.6km / GTX-A / 스타필드 2.3km / 분양',monthly:-4.3},
+  {id:62,region:'경기 파주시',addr:'경기 파주시 송학1길 65-124',name:'폴라시엘로',type:'쓰리룸',price:42900,mortgage:5000,r:3000,tax:'X',taxsup:'X',duplex:'O',rooms:'3',baths:'2',memo:'잔여 호수 7동: 101~402 다수 / 8동: 101·102(분사)·201·401 / 1동·2동 일부 야당역 도보 5분 / 스타필드 도보 5분 / 15개동 114세대 / 유럽정원',monthly:1.9},
+  {id:63,region:'경기 안산시',addr:'경기 안산시 단원구 경일길 6',name:'갤러리아포레 2차',type:'쓰리룸',price:26900,mortgage:1700,r:1500,tax:'X',taxsup:'X',duplex:'O',rooms:'3',baths:'2',memo:'담보실입: 내국인 1,700만 / 외국인 2,400만 (R15 조건)  잔여 호수A동: 201~502 전 호수 / B동: 201~502 전 호수 (202 할인협의 표기) 가전·가구',monthly:1.3},
+  {id:64,region:'경기 안산시',addr:'경기 안산시 단원구 지곡로1길 31',name:'예원빌',type:'쓰리룸',price:28900,mortgage:3000,r:2000,tax:'X',taxsup:'X',duplex:'O',rooms:'3',baths:'2',memo:'잔여 호수A동: 201(분사)·202·302·402·501 / B동: 201·202·301·302·401·501 (301·502 분양완료) 냉장고·세탁기·건조기·오븐 / 외국인 6',monthly:1.3},
+  {id:65,region:'경기',addr:'경기 수원시 권선구 금호로247번길 19',name:'구운센트로',type:'쓰리룸',price:39500,mortgage:10000,r:2000,tax:'X',taxsup:'X',duplex:'O',rooms:'3',baths:'2',memo:'잔여 호수501호 1세대비고즉시입주가능 / 어려운 손님 환영',monthly:1.5},
+  {id:66,region:'경기 수원시',addr:'경기 수원시 권선구 권선로580번길 13-4',name:'네오빌',type:'쓰리룸',price:21900,mortgage:70,r:1500,tax:'X',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'담보실입 70% / 소득 보고 업 가능 잔여 호수201·202·301·302·401·402·501·502 전 호수 베란다 전 호수 / 401·501·502 테라스',monthly:1.1},
+  {id:67,region:'경기',addr:'경기 수원시 권선구 경수대로309번길 6-19',name:'다인델루나',type:'쓰리룸',price:32900,mortgage:8000,r:2000,tax:'X',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'왕테라스·테라스 혼합 잔여 호수201·203·301·401·501 (5세대) 준공완료 / 1개동 10세대 / 삼성 비스포크 냉장고 2대 / 수원터미널·NC백화점 5분',monthly:1.2},
+  {id:68,region:'경기 수원시',addr:'경기 수원시 권선구 정조로 457-5',name:'레베랑스',type:'쓰리룸',price:32800,mortgage:6000,r:1500,tax:'X',taxsup:'X',duplex:'O',rooms:'3',baths:'2',memo:'잔여 호수2층: 201·204·205·207 / 3층: 304·305·306 / 4층: 405·406 / 5층: 501·503·504·505·506 (취소선=분양완료·분사) 갭(전',monthly:1.3},
+  {id:69,region:'경기 수원시',addr:'경기 수원시 권선구 세권로34번길 22',name:'로잔빌',type:'쓰리룸',price:36400,mortgage:0,r:2000,tax:'X',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'잔여 호수201~502 전 호수 (101호 상가 제외) 1개동 8세대 / 무입주가능 / 즉시입주가능 / 어려운 손님 환영',monthly:1.8},
+  {id:70,region:'경기',addr:'경기 수원시 권선구 하탑로50번길 12',name:'바이올렛',type:'쓰리룸',price:28500,mortgage:1800,r:1300,tax:'X',taxsup:'X',duplex:'O',rooms:'3',baths:'2',memo:'201·202·203·501·502·503 (301 분양완료) 시스템에어컨·빌트인냉장고·슬라이딩도어 / CCTV·엘리베이터 / 발코니 확장',monthly:1.3},
+  {id:71,region:'경기',addr:'경기 수원시 권선구 구운로64번길 22',name:'수팰리스',type:'쓰리룸',price:36000,mortgage:0,r:2000,tax:'X',taxsup:'X',duplex:'O',rooms:'3',baths:'2',memo:'대출 자체해결 301호·501호 2세대 (201·401 분양완료) 수원에서 제일 큰집 / 대왕거실 / 단독 외부 왕테라스',monthly:1.8},
+  {id:72,region:'경기 수원시',addr:'경기 수원시 권선구 하탑로 62',name:'탑동 슈팅스타',type:'쓰리룸',price:30700,mortgage:0,r:1500,tax:'X',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'잔여 호수202·203(테라스) / 303 / 402·403 / 503 (취소선=분양완료) 시스템에어컨 4대 / 냉장고·식기세척기 빌트인 / 수원역 차량 8분 / 호탑초 도보 5분',monthly:1.5},
+  {id:73,region:'경기 수원시',addr:'경기 수원시 권선구 세권로 32-12',name:'아성리치빌 B동',type:'쓰리룸',price:31500,mortgage:6500,r:800,tax:'X',taxsup:'X',duplex:'O',rooms:'2',baths:'1',memo:'잔여 호수 501·502호 2세대 (201~402 확인 필요) 수원역 도보 15분 / 세류중 도보 3분 / 신곡초 도보 10분 / A동 분양완료',monthly:1.2},
+  {id:74,region:'경기 수원시',addr:'경기 수원시 권선구 세권로34번길 24',name:'아크빌',type:'쓰리룸',price:39000,mortgage:9000,r:2000,tax:'X',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'담보 실입: 신용과 의지에 따라 달라짐 202·301·302·401·402·502 (6세대) 준공완료 / 1개동 9세대 / 즉시입주가능 / 어려운 손님 환영',monthly:1.5},
+  {id:75,region:'경기 수원시',addr:'경기 수원시 장안구 영화로 102',name:'어울림',type:'쓰리룸',price:39000,mortgage:10000,r:2000,tax:'X',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'잔여 호수 다세대: 201~905 다수 / 801·802·303·402·503·504 분양완료 비고준공완료 / 1개동 40세대 / 전 세대 시스템에어컨2 / 일시적 분양가 할인 중',monthly:1.4},
+  {id:76,region:'경기 수원시',addr:'경기 수원시 권선구 금호로185번길 9',name:'우정파크빌',type:'쓰리룸',price:21500,mortgage:5000,r:1500,tax:'X',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'잔여 호수201~504 전 호수 16세대 서수원터미널·E마트 도보 5분 / 구운역 개통 확정 / 수원에서 가격 제일 착한 집',monthly:0.8},
+  {id:77,region:'경기 수원시',addr:'경기 수원시 장안구 장안로30번길 27',name:'인정더헤이븐',type:'쓰리룸',price:27200,mortgage:5000,r:2000,tax:'O',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'잔여 호수1동·2동 전 호수 22세대 (전부 분양중) 총 2개동 22세대 / 무입주 상담가능(외국인 동일) / 어려운 손님 환영 / 영화동 규제지역 주의',monthly:1.1},
+  {id:78,region:'경기 수원시',addr:'경기 수원시 권선구 탑동로57번길 63',name:'창민주택',type:'쓰리룸',price:29800,mortgage:3000,r:1000,tax:'X',taxsup:'X',duplex:'O',rooms:'3',baths:'2',memo:'담보실입: 회사채 5천 쓰면 3천까지 잔여 호수 201(분양사무실)·202·203·301·401·402·501·502·503 (302·303·403 분양완료) 준공전 / 1개동 1',monthly:1.3},
+  {id:79,region:'서울 동대문구',addr:'서울 동대문구 장한로12길 66',name:'르시엘',type:'쓰리룸',price:56500,mortgage:20000,r:2000,tax:'X',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'잔여 호수101동: 202·502·602 / 102동: 201·401·501·601 / 103동: 203·301·501·503·601·603 (동그라미 표시 우선) 초·중 1분거리',monthly:1.8},
+  {id:80,region:'서울 금천구',addr:'서울 금천구 독산로56길 18-13',name:'리베로',type:'쓰리룸',price:34500,mortgage:0,r:0,tax:'X',taxsup:'X',duplex:'X',rooms:'3',baths:'1',memo:'잔여 호수202·203·302·303·502·601·602 (7세대) 신톡산역(신안산선) 26년 개통 예정 / 버스정류장 1분 / 시스템에어컨 거실·안방 2대 / 전세대기능',monthly:1.7},
+  {id:81,region:'서울 금천구',addr:'서울 금천구 남부순환로 1268-5',name:'벨리지움 (OP)',type:'투룸',price:29400,mortgage:0,r:0,tax:'O',taxsup:'X',duplex:'X',rooms:'2',baths:'1',memo:'잔여 호수301·303·401·402·403·502·702 (7세대) 전세 27,900만 / 더블X(계약자인정) / 전세보증보험 100% / 가디역·남구로역·구디역 도보 10~20',monthly:1.5},
+  {id:82,region:'서울 강북구',addr:'서울 강북구 삼양로77길 28-11',name:'세인트캐슬',type:'투룸',price:25500,mortgage:0,r:1500,tax:'O',taxsup:'X',duplex:'X',rooms:'2',baths:'1',memo:'실입 확인필요 잔여 호수101동 203호 / 102동 201·401호 (3세대) 삼양역 5분 / 롯데마트 7분 / 강북구청 재개발 검토 / 안방에어컨·거실에어컨 / 4월말 번호 사',monthly:1.3},
+  {id:83,region:'서울',addr:'서울 양천구 남부순환로 572',name:'센트필드',type:'투룸',price:23000,mortgage:0,r:1000,tax:'O',taxsup:'X',duplex:'X',rooms:'2',baths:'1',memo:'담보실입: 오피스텔 대출 70% 잔여 호수오피스텔 4~7층 전 호수 (401~704) / 다세대(8~10층) 분양완료 서부트럭터미널 개발호재 25년 착공확정 / 에어컨·냉장고·인덕',monthly:1.1},
+  {id:84,region:'경기 오산시',addr:'경기 오산시 오산로368번길 23',name:'엘리시아 2차',type:'쓰리룸',price:26000,mortgage:4000,r:1300,tax:'X',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'잔여 호수202·302·403 (나머지 분양완료) 준공전 / 2개동 38세대 / 오산대역 홈플러스 5분 / 세대별 개인창고 / 시스템에어컨·엘리베이터',monthly:1.1},
+  {id:85,region:'경기 고양시',addr:'경기 고양시 일산서구 가좌4로 12-20',name:'퍼스트캐슬',type:'쓰리룸',price:30500,mortgage:1000,r:2000,tax:'O',taxsup:'X',duplex:'O',rooms:'3',baths:'2',memo:'1동: 201·301·302·303·403 / 2동: 202·203·301·303·401·402 (취소선=분양완료) 시스템에어컨 3대·식기세척기·광파오븐렌지 / 분양가 노출금지 담',monthly:1.5},
+  {id:86,region:'경기 김포시',addr:'경기 김포시 양촌읍 양곡1로37번길 9',name:'프리하임 더 시티',type:'쓰리룸',price:19900,mortgage:0,r:0,tax:'O',taxsup:'X',duplex:'O',rooms:'3',baths:'2',memo:'김포골드라인·더블역세권 / 구래역·양촌역 자차 5분 / 제2수도권순환로 대곶IC 인접 / 시스템에어컨·양방창·중간소음체·식기세척기·전열교환기 / 분양가 노출 절대금지  담보실입, ',monthly:1.0},
+  {id:87,region:'서울 은평구',addr:'서울 은평구 갈현로1길 6-32',name:'해들목휴먼빌',type:'쓰리룸',price:46000,mortgage:0,r:0,tax:'O',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'담보실입확인 필요 R금액확인 필요  6호선 응암역 도보 10분 / 버스정류장 1분 / 시스템에어컨 2대·전열교환기·냉장고 / 역존초·상신초·덕산중·숭실중고 인접',monthly:2.3},
+  {id:88,region:'경기 광주시',addr:'경기 광주시 모개미길 63-23',name:'라임하우스',type:'쓰리룸',price:32000,mortgage:6000,r:1000,tax:'X',taxsup:'X',duplex:'O',rooms:'3',baths:'2',memo:'담실 6,000 / 나머지 신용 테라스 34,000 / 일반 32,000 / 복층 (취소선 39,000→현재가 확인필요)만원',monthly:1.3},
+  {id:89,region:'경기 광주시',addr:'경기 광주시 이배재로 338-6',name:'BS 에비뉴',type:'쓰리룸',price:45000,mortgage:1600,r:1500,tax:'O',taxsup:'X',duplex:'O',rooms:'3',baths:'2',memo:'광주시청 개발 확정 / 성남·분당 자차 10분 / 무풍에어컨 4대 / 비스포크냉장고·세탁기·건조기·식기세척기 풀옵션 / IOT 스마트라이프',monthly:2.2},
+  {id:90,region:'경기 광주시',addr:'경기 광주시 경안천로 77-11',name:'송정동 더라임',type:'쓰리룸',price:26800,mortgage:0,r:1000,tax:'X',taxsup:'X',duplex:'O',rooms:'3',baths:'2',memo:'전액대출 가능 (DSR 초과도 기존빚 갚아드림) 전액대출 가능 / 여유자금 5,000 이상 가능 / 재직 3개월부터 / 소득없어도 상담후 가능 / 광역버스정류장 100m / 진행시',monthly:1.3},
+  {id:91,region:'경기 광주시',addr:'경기 광주시 초월읍 산이리 166-21',name:'초월 다이브씨티',type:'쓰리룸',price:31900,mortgage:1000,r:1000,tax:'X',taxsup:'X',duplex:'O',rooms:'3',baths:'2',memo:'무입주 가능 복층도 추가안내 가능 (기준층18,900 / 복층원룸18,900~복층테라스25,900) R12',monthly:1.5},
+  {id:92,region:'경기 광주시',addr:'경기 광주시 초월읍 경충대로963번길 11-99',name:'백산 자이안',type:'쓰리룸',price:27500,mortgage:3000,r:1500,tax:'X',taxsup:'X',duplex:'O',rooms:'3',baths:'2',memo:'일반 27,500 / 테라스 27,500~32,000 / 복층 35,500만원 (할인가 기준)',monthly:1.2},
+  {id:93,region:'경기 광주시',addr:'경기 광주시 초월읍 산이길 64-57',name:'스카이힐',type:'쓰리룸',price:32500,mortgage:4700,r:1000,tax:'X',taxsup:'X',duplex:'O',rooms:'3',baths:'2',memo:'시스템에어컨 4대·내장형비데 2대·드레스룸·시스템행거·냉장고·김치냉장고·광파오븐·식기세척기·전세대 IOT시스템',monthly:1.4},
+  {id:94,region:'경기 부천시',addr:'경기 부천시 소사구 부광로29번길 31-8',name:'드림파크',type:'쓰리룸',price:13000,mortgage:3000,r:2000,tax:'X',taxsup:'X',duplex:'O',rooms:'3',baths:'2',memo:'지하철 1호선 급행 역곡역 도보 5분 / 정남향·대형평수·테라스세대 / 부천양지초·동중학교 학군 / 카톨릭대부천성모병원 방3~4 화2 / 복층+테라스 혼합',monthly:0.5},
+  {id:95,region:'경기 부천시',addr:'경기 부천시 소사구 안곡로68번길 7',name:'라비앙힐스 아파트',type:'쓰리룸',price:37500,mortgage:10000,r:1500,tax:'X',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'담보실입70%+@ / 1억 실입 정찰제 분양 / 전세대 파격 가격인하 / 거실 실링팬·시스템에어컨 2대·인덕션·강화마루 / 정남향 뻥뚫린 뷰 / 더블무인정·전세·매매 추후안심가능',monthly:1.4},
+  {id:96,region:'경기',addr:'경기 부천시 소사구 안곡로49번길 6',name:'정안레드빌',type:'쓰리룸',price:28000,mortgage:0,r:0,tax:'O',taxsup:'X',duplex:'O',rooms:'3',baths:'2',memo:'담보실입: 무주택 70% / 생초 80% / 신용대출 추가 가능',monthly:1.4},
+  {id:97,region:'경기 부천시',addr:'경기 부천시 소사구 심곡로 36',name:'느보하임 아파트',type:'쓰리룸',price:34500,mortgage:0,r:1000,tax:'O',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'출산장려금 지원(자녀당 최소1억~7억) 또는 취득세 100% 중 택일 / 삼성에어컨 2대·식기세척기·냉장고·세탁기·건조기·65TV / 이마트·자유시장·대형병원 / 더블인정 X',monthly:1.7},
+  {id:98,region:'경기 부천시',addr:'경기 부천시 오정구 삼작로302번길 41-8',name:'맘에그린',type:'쓰리룸',price:34900,mortgage:7000,r:2000,tax:'O',taxsup:'X',duplex:'O',rooms:'3',baths:'2',memo:'도당산 장미공원 산책로 1분 / 여월홈플러스·부천북부도서관 / 여월초·여월중·부천북고·도당고 학군 / 더블인정 안됨',monthly:1.4},
+  {id:99,region:'경기 부천시',addr:'경기 부천시 소사구 성주로 74-8',name:'메이채포레',type:'쓰리룸',price:27100,mortgage:5000,r:0,tax:'X',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'5월 준공예정 / 삼성 시스템에어컨 2대·양문형냉장고·스마트오븐렌지·광폭마루·실링팬 / 송내IC 인접·1호선 중동역세권 / 부천과학고 1분거리(27년 3월)',monthly:1.1},
+  {id:100,region:'경기',addr:'경기 부천시 오정구 삼작로352번길 17',name:'우박아우름 아파트',type:'쓰리룸',price:49000,mortgage:6000,r:2000,tax:'O',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'큰방3 대형욕실2 / 넓은 거실 더블인정 X / GTX-B노선 부천종합운동장역 확정 강남 20분 / 원종역 도보 7분 / 각방 시스템에어컨 4대·LG하이샷시·삼성비스포크키친핏 풀옵',monthly:2.1},
+  {id:101,region:'경기 부천시',addr:'경기 부천시 오정구 삼작로339번길 9',name:'테라탑팰리스 III APT',type:'쓰리룸',price:49700,mortgage:0,r:0,tax:'O',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'정찰기 분양 / 원종역 도보 7분 / 초·중·고 도보 5분 / 장미공원 도보 10분 / 시스템에어컨 2대·드레스룸·파우더룸·시스템옷장·세탁실 별도 / 더블인정 X / 광고금지',monthly:2.5},
+  {id:102,region:'경기 부천시',addr:'경기 부천시 원미구 수도로190번길 16-6',name:'세븐하임',type:'쓰리룸',price:36900,mortgage:0,r:2000,tax:'X',taxsup:'X',duplex:'O',rooms:'3',baths:'2',memo:'부천장미 수목원 산책로 5분 / 도당초·도당중·도당고·북고 학군 / 네이버광고금지 / 더블인정 안됨 / 수기: 취제로 옵션 에어컨2 / 방4 1 10+2012',monthly:1.8},
+  {id:103,region:'경기 부천시',addr:'경기 부천시 원미구 삼작로292번길 48',name:'한솔캐슬',type:'쓰리룸',price:33900,mortgage:0,r:2000,tax:'X',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'시스템에어컨 2대·엘리베이터·무인택배함 / 여월초·여월중·도당초·도당중·도당고·북고 학군 / 도당산장미공원·수목원 산책로 1분 / 버스정류장 도보 3분 / 원종역·종합운동장역 버스',monthly:1.7},
+  {id:104,region:'경기 부천시',addr:'경기 부천시 원미구 부일로517번길 42',name:'광백드림빌 1차',type:'쓰리룸',price:31800,mortgage:5000,r:1500,tax:'O',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'오피스텔 부천역·CGV·롯데시네마·카톨릭성모병원·심곡천공원·원미초·정명중·정명고',monthly:1.3},
+  {id:105,region:'경기',addr:'경기 부천시 오정구 수도로 191',name:'명성 카렌시아',type:'쓰리룸',price:44900,mortgage:6000,r:2000,tax:'X',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'왕테라스 혼합/생애최초 80%',monthly:1.9},
+  {id:106,region:'경기 부천시',addr:'경기 부천시 원미구 조마루로372번길 10',name:'성도리치빌 7차',type:'쓰리룸',price:34000,mortgage:4000,r:2000,tax:'X',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'감정가 70%+신용대출 / 명문 초·중·고 300m 이내 / 7호선 순의역 도보 7분·1호선 10분 / 중동 생활권 / 더블인정 안됨 / 네이버 광고금지',monthly:1.5},
+  {id:107,region:'경기',addr:'경기 부천시 소사구 소삼로30번길 41',name:'소사본동 시그니빌',type:'쓰리룸',price:35000,mortgage:0,r:0,tax:'O',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'주택 70% / 생애최초 80% / 보금자리대출 최대 3억 4.5% 소사역 도보 8분·1호선·서해선·대곡소사선 / 소사종합시장·부천한신시장 / 부천성모병원·세종병원 / EV설치·내',monthly:1.8},
+  {id:108,region:'경기 부천시',addr:'경기 부천시 소사구 심곡로10번길 68',name:'엠타워 디루체',type:'쓰리룸',price:35900,mortgage:5000,r:0,tax:'O',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'95세대 대단지(OP 63/APT 32) / 세대별 개별창고 / 하이엔드 인테리어 / 삼성 가전 각방 시스템에어컨·식기세척기·공기순환기·거실 실링팬',monthly:1.5},
+  {id:109,region:'경기 부천시',addr:'경기 부천시 오정구 석천로356번길 5',name:'정현위브로 APT',type:'쓰리룸',price:49900,mortgage:15000,r:2500,tax:'O',taxsup:'X',duplex:'X',rooms:'3',baths:'2',memo:'담보실입실입 1억5천 이상 / 은행융자 4억~4억6천 분양금액 경정제 / 더블인정 없음(당일 시간 별도 인정 안됨) / 보조주방·롱테라스·베란다2개 / 시스템에어컨·CCTV·LED',monthly:1.7},
+  {id:110,region:'경기 부천시',addr:'경기 부천시 오정구 삼작로 62',name:'휴카운티 아파트',type:'쓰리룸',price:47500,mortgage:15000,r:2000,tax:'X',taxsup:'X',duplex:'O',rooms:'3',baths:'2',memo:'6개동 단지형 APT 152세대 / 1호라인 방3화2 통베란다 / 2~3호라인 방3화2 알파룸 욕조 / 시스템에어컨2·식기세척기·블박이장 / 초중고 인접·부천IC 1분 / 광고금지',monthly:1.6}
+];
+
+let nxtId = 300;
+let props = JSON.parse(localStorage.getItem(PROP_KEY) || 'null') || INIT_PROPS;
+let custs = JSON.parse(localStorage.getItem(CUST_KEY) || '[]');
+let selCust = null, cfFilter = '', selRegion = '', mapFilter = 'all';
+let leafMap = null, markers = {}, activeId = null;
+
+function monthly(price, mort) {
+  const loan = (price||0) - (mort||0);
+  return loan > 0 ? Math.round(loan * 0.5 / 1000) / 10 : 0; // 만원
 }
 
-function loadProps() {
-  const saved = JSON.parse(localStorage.getItem(STORE_KEY) || '[]');
-  // 이미지 복원
-  saved.forEach(p => {
-    const imgs = localStorage.getItem('dh_img_' + p.id);
-    if (imgs) try { p.images = JSON.parse(imgs); } catch(e) {}
-  });
-  return saved;
-}
+function saveProps() { try{localStorage.setItem(PROP_KEY,JSON.stringify(props));}catch(e){} updateStats(); }
+function saveCusts() { try{localStorage.setItem(CUST_KEY,JSON.stringify(custs));}catch(e){} updateStats(); }
 
 function updateStats() {
-  document.getElementById('stTotal').textContent  = props.length;
-  document.getElementById('stActive').textContent = props.filter(p => p.status === '분양중').length;
-  const totalR = props.reduce((s, p) => s + (parseInt(p.ramt) || 0) * 100, 0);
-  document.getElementById('stR').textContent = totalR ? totalR.toLocaleString() + '만' : '-';
+  document.getElementById('stProp').textContent = props.length;
+  document.getElementById('stZero').textContent = props.filter(p=>p.mortgage===0).length;
+  document.getElementById('stLow').textContent  = props.filter(p=>p.mortgage>0&&p.mortgage<=2000).length;
+  document.getElementById('stCust').textContent  = custs.length;
 }
 
-// ══════════════════════════════════════════════
+// ════════════════════════════════════════
 // 탭
-// ══════════════════════════════════════════════
+// ════════════════════════════════════════
 function goTab(name, el) {
-  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  document.getElementById('pane' + name.charAt(0).toUpperCase() + name.slice(1)).classList.add('active');
+  document.querySelectorAll('.pane').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('pane'+name.charAt(0).toUpperCase()+name.slice(1)).classList.add('active');
   el.classList.add('active');
-  if (name === 'list') renderList();
+  if(name==='prop') { buildRegionSidebar(); renderPropGrid(); }
+  if(name==='cust') renderCustDB();
+  if(name==='map')  setTimeout(()=>{ initMap(); renderMap(); }, 80);
 }
 
-// ══════════════════════════════════════════════
-// 지역 → 검색 키워드 맵
-// ══════════════════════════════════════════════
-// ── 지역 데이터 ──────────────────────────────────────
-const DISTRICT_MAP = {
-  '서울': ['강남구','강동구','강북구','강서구','관악구','광진구','구로구','금천구',
-    '노원구','도봉구','동대문구','동작구','마포구','서대문구','서초구','성동구',
-    '성북구','송파구','양천구','영등포구','용산구','은평구','종로구','중구','중랑구'],
-  '인천': ['강화군','계양구','남동구','동구','미추홀구','부평구','서구','연수구','옹진군','중구'],
-  '경기': ['고양시','과천시','광명시','광주시','구리시','군포시','김포시','남양주시',
-    '동두천시','부천시','성남시','수원시','시흥시','안산시','안성시','안양시',
-    '양주시','양평군','여주시','연천군','오산시','용인시','의왕시','의정부시',
-    '이천시','파주시','평택시','포천시','하남시','화성시'],
-  '충청': ['충남 아산시','충남 당진시','충남 서산시','충남 천안시','충남 공주시',
-    '충북 청주시','충북 충주시','충북 제천시','대전시','세종시'],
-  '경북': ['구미시','포항시','경주시','안동시','김천시'],
-};
-
-// 주소 검색용 키워드 매핑
-const ADDR_PREFIX = {
-  '서울': '서울',
-  '인천': '인천',
-  '경기': '경기도',
-  '충청': '충청',
-  '경북': '경상북도',
-};
-
-function onRegionChange() {
-  const r = document.getElementById('fRegion').value;
-  const distEl = document.getElementById('fDistrict');
-
-  if (DISTRICT_MAP[r]) {
-    distEl.innerHTML = '<option value="">-- 세부지역 --</option>' +
-      DISTRICT_MAP[r].map(d => '<option value="' + d + '">' + d + '</option>').join('');
-    distEl.style.display = '';
-    distEl.value = '';
-  } else {
-    distEl.style.display = 'none';
-    distEl.value = '';
-  }
-  updateAddrHint();
+// ════════════════════════════════════════
+// 고객 목록
+// ════════════════════════════════════════
+function setCF(btn, val) {
+  document.querySelectorAll('.c-chips .chip').forEach(c=>c.classList.remove('on'));
+  btn.classList.add('on'); cfFilter = val; renderCustList();
 }
 
-function onDistrictChange() {
-  updateAddrHint();
-}
-
-function updateAddrHint() {
-  const r  = document.getElementById('fRegion').value;
-  const d  = document.getElementById('fDistrict').value;
-  const hint = document.getElementById('addrHint');
-  if (d)      hint.textContent = '(' + d + ' 기준 검색)';
-  else if (r) hint.textContent = '(' + (ADDR_PREFIX[r] || r) + ' 기준 검색)';
-  else        hint.textContent = '';
-}
-
-// 주소 팝업 선택 시 지역 자동 세팅
-function autoSetRegion(data) {
-  const sido    = data.sido    || '';
-  const sigungu = data.sigungu || '';
-
-  let regionKey = '';
-  if (sido.includes('서울'))         regionKey = '서울';
-  else if (sido.includes('인천'))    regionKey = '인천';
-  else if (sido.includes('경기'))    regionKey = '경기';
-  else if (sido.includes('충청') || sido.includes('대전') || sido.includes('세종')) regionKey = '충청';
-  else if (sido.includes('경상북') || sido.includes('경북')) regionKey = '경북';
-
-  if (!regionKey) return;
-
-  document.getElementById('fRegion').value = regionKey;
-  onRegionChange();
-
-  // 세부지역 자동 선택
-  if (sigungu) {
-    const distEl = document.getElementById('fDistrict');
-    for (const opt of distEl.options) {
-      // "충남 아산시" 형태도 매칭
-      if (opt.value === sigungu || opt.value.includes(sigungu) || sigungu.includes(opt.value.replace(/^충남 |^충북 /, ''))) {
-        distEl.value = opt.value;
-        break;
-      }
-    }
-    updateAddrHint();
-  }
-}
-
-// ══════════════════════════════════════════════
-// 주소 자동완성 (카카오 REST API)
-// ── 주소 검색: 카카오 우편번호 서비스 (file:// 완전 지원, 건물명 검색 가능)
-function openAddrSearch() {
-  if (typeof daum === 'undefined' || !daum.Postcode) {
-    // 스크립트 동적 로드 후 실행
-    const s = document.createElement('script');
-    s.src = 'https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js';
-    s.onload = () => openAddrSearch();
-    document.head.appendChild(s);
-    return;
-  }
-  new daum.Postcode({
-    theme: {
-      bgColor: '#111f35',
-      searchBgColor: '#152540',
-      contentBgColor: '#0a1628',
-      pageBgColor: '#0a1628',
-      textColor: '#e8f1ff',
-      queryTextColor: '#e8f1ff',
-      postcodeTextColor: '#00b4d8',
-      emphTextColor: '#f4a442',
-      outlineColor: '#1e3a5f',
-    },
-    oncomplete: function(data) {
-      const addr = data.roadAddress || data.jibunAddress;
-      document.getElementById('fAddr').value = addr;
-      document.getElementById('addrStatus').innerHTML =
-        '<span class="geo-ok">✓ ' + addr + (data.buildingName ? ' (' + data.buildingName + ')' : '') + '</span>';
-      // 주소에서 지역 자동 매핑
-      autoSetRegion(data);
-    }
-  }).open();
-}
-
-
-
-function copyAddr() {
-  const v = document.getElementById('fAddr').value.trim();
-  if (!v) { toast('주소를 먼저 입력해주세요.', true); return; }
-  navigator.clipboard.writeText(v).then(() => toast('주소 복사 완료 ✓'));
-}
-
-// ══════════════════════════════════════════════
-// OX 토글
-// ══════════════════════════════════════════════
-function toggleOX(btn) {
-  const f = btn.dataset.f;
-  const grp = btn.closest('.ox-group');
-  grp.querySelectorAll('.ox-btn').forEach(b => b.classList.remove('on'));
-  btn.classList.add('on');
-  document.getElementById(f).value = btn.classList.contains('o') ? 'O' : 'X';
-}
-
-function setOX(fieldId, val) {
-  document.getElementById(fieldId).value = val;
-  const grp = document.getElementById(fieldId).previousElementSibling;
-  if (!grp || !grp.classList.contains('ox-group')) return;
-  grp.querySelectorAll('.ox-btn').forEach(b => {
-    b.classList.remove('on');
-    if ((val === 'O' && b.classList.contains('o')) || (val === 'X' && b.classList.contains('x'))) {
-      b.classList.add('on');
-    }
-  });
-}
-
-// ══════════════════════════════════════════════
-// R 힌트
-// ══════════════════════════════════════════════
-function showRHint(v) {
-  const n = parseInt(v);
-  document.getElementById('rHint').textContent = n > 0 ? '= ' + (n * 100).toLocaleString() + '만원' : '';
-}
-
-// ══════════════════════════════════════════════
-// 이미지
-// ══════════════════════════════════════════════
-const drop = document.getElementById('imgDrop');
-drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('drag'); });
-drop.addEventListener('dragleave', () => drop.classList.remove('drag'));
-drop.addEventListener('drop', e => { e.preventDefault(); drop.classList.remove('drag'); addImages(e.dataTransfer.files); });
-
-function addImages(files) {
-  Array.from(files).forEach(f => {
-    const r = new FileReader();
-    r.onload = e => { imgs.push(e.target.result); renderImgs(); };
-    r.readAsDataURL(f);
-  });
-}
-
-function renderImgs() {
-  document.getElementById('imgGrid').innerHTML = imgs.map((src, i) =>
-    '<div class="img-thumb"><img src="' + src + '" onclick="openOv(' + i + ')"><button class="img-del" onclick="rmImg(' + i + ')">✕</button></div>'
-  ).join('');
-}
-
-function rmImg(i) { imgs.splice(i, 1); renderImgs(); }
-function openOv(i) { ovImgs = imgs; ovIdx = i; document.getElementById('ovImg').src = ovImgs[i]; document.getElementById('ovIdx').textContent = (i+1)+'/'+ovImgs.length; document.getElementById('overlay').classList.add('on'); }
-function closeOv() { document.getElementById('overlay').classList.remove('on'); }
-function ovNav(d) { ovIdx = (ovIdx + d + ovImgs.length) % ovImgs.length; document.getElementById('ovImg').src = ovImgs[ovIdx]; document.getElementById('ovIdx').textContent = (ovIdx+1)+'/'+ovImgs.length; }
-
-// ══════════════════════════════════════════════
-// 폼
-// ══════════════════════════════════════════════
-function openForm(prop) {
-  goTab('form', document.getElementById('tabForm'));
-  if (prop) {
-    document.getElementById('fTitle').textContent = '✏️ 매물 수정';
-    document.getElementById('fBadge').style.display = '';
-    document.getElementById('fDelBtn').style.display = '';
-    document.getElementById('fId').value = prop.id;
-    const rf = prop.regionFull || prop.region || '';
-    // "서울 강남구" 또는 "경기 안산시" 형식 처리
-    const spaceIdx = rf.indexOf(' ');
-    const baseR = spaceIdx > 0 ? rf.slice(0, spaceIdx) : rf;
-    const distR  = spaceIdx > 0 ? rf.slice(spaceIdx + 1) : '';
-    document.getElementById('fRegion').value = baseR;
-    onRegionChange();
-    if (distR) {
-      document.getElementById('fDistrict').value = distR;
-      updateAddrHint();
-    }
-    document.getElementById('fAddr').value = prop.address || '';
-    document.getElementById('addrStatus').innerHTML = prop.address ? '<span class="geo-ok">✓ ' + prop.address + '</span>' : '';
-    document.getElementById('fName').value = prop.name || '';
-    document.getElementById('fType').value = prop.type || '쓰리룸';
-    document.getElementById('fPrice').value = prop.price || '';
-    document.getElementById('fMortgage').value = prop.mortgage || '';
-    setOX('fTax', prop.tax || 'O');
-    document.getElementById('fTaxAmt').value = prop.taxamt || '';
-    setOX('fTaxSup', prop.taxsup || 'X');
-    document.getElementById('fTaxDetail').value = prop.taxdetail || '';
-    document.getElementById('fRamt').value = prop.ramt || '';
-    showRHint(prop.ramt || 0);
-    document.getElementById('fRmemo').value = prop.rmemo || '';
-    document.getElementById('fRooms').value = prop.rooms || '3';
-    document.getElementById('fBaths').value = prop.baths || '2';
-    setOX('fDuplex', prop.duplex || 'X');
-    document.getElementById('fParking').value = prop.parking || '';
-    document.getElementById('fMemo').value = prop.memo || '';
-    imgs = prop.images ? [...prop.images] : [];
-    renderImgs();
-  } else {
-    resetForm();
-  }
-}
-
-function resetForm() {
-  document.getElementById('fTitle').textContent = '🏠 신규 매물 등록';
-  document.getElementById('fBadge').style.display = 'none';
-  document.getElementById('fDelBtn').style.display = 'none';
-  document.getElementById('fId').value = '';
-  ['fRegion','fAddr','fName','fPrice','fMortgage','fTaxAmt','fTaxDetail','fRamt','fRmemo','fParking','fMemo']
-    .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-  document.getElementById('fType').value = '쓰리룸';
-  document.getElementById('fRooms').value = '3';
-  document.getElementById('fBaths').value = '2';
-  document.getElementById('addrHint').textContent = '';
-  const distEl = document.getElementById('fDistrict'); distEl.style.display='none'; distEl.value='';
-  document.getElementById('addrStatus').textContent = '';
-  document.getElementById('rHint').textContent = '';
-  setOX('fTax', 'O'); setOX('fTaxSup', 'X'); setOX('fDuplex', 'X');
-  imgs = []; renderImgs();
-}
-
-function saveProperty() {
-  const region = document.getElementById('fRegion').value.trim();
-  const name   = document.getElementById('fName').value.trim();
-  const addr   = document.getElementById('fAddr').value.trim();
-  const price  = document.getElementById('fPrice').value.trim();
-
-  if (!region || !name || !addr || !price) {
-    toast('지역, 단지명, 주소, 분양가는 필수입니다.', true);
-    return;
-  }
-
-  const editId = document.getElementById('fId').value;
-  const addrParts = addr.split(' ');
-  const subregion = addrParts.length >= 2 ? addrParts[1] : '';
-  const regionBase = region.includes('-') ? region.split('-')[0] : region;
-  const district = document.getElementById('fDistrict').value;
-  const regionFull = district ? region + ' ' + district : region;
-
-  const p = {
-    id:         editId ? parseInt(editId) : nextId++,
-    region:     regionBase,
-    regionFull: regionFull,
-    subregion,
-    address:    addr,
-    name,
-    type:       document.getElementById('fType').value,
-    price:      parseInt(price) || 0,
-    mortgage:   parseInt(document.getElementById('fMortgage').value) || 0,
-    tax:        document.getElementById('fTax').value,
-    taxamt:     parseInt(document.getElementById('fTaxAmt').value) || 0,
-    taxsup:     document.getElementById('fTaxSup').value,
-    taxdetail:  document.getElementById('fTaxDetail').value,
-    r:          'O',
-    ramt:       parseInt(document.getElementById('fRamt').value) || 0,
-    rmemo:      document.getElementById('fRmemo').value,
-    rooms:      document.getElementById('fRooms').value,
-    baths:      document.getElementById('fBaths').value,
-    duplex:     document.getElementById('fDuplex').value,
-    parking:    document.getElementById('fParking').value,
-    status:     '분양중',
-    memo:       document.getElementById('fMemo').value,
-    images:     [...imgs],
-    updatedAt:  new Date().toISOString(),
-  };
-
-  if (editId) {
-    const idx = props.findIndex(x => x.id === parseInt(editId));
-    if (idx >= 0) props[idx] = p; else props.push(p);
-  } else {
-    props.push(p);
-  }
-
-  persist();
-  toast(editId ? '✅ 수정되었습니다!' : '✅ 저장되었습니다!');
-  resetForm();
-  goTab('list', document.getElementById('tabList'));
-}
-
-function delProperty() {
-  const id = parseInt(document.getElementById('fId').value);
-  if (!id) return;
-  showConfirm('이 매물을 삭제할까요?', '삭제', '취소', function() {
-    props = props.filter(p => p.id !== id);
-    localStorage.removeItem('dh_img_' + id);
-    persist();
-    toast('🗑️ 삭제되었습니다.');
-    resetForm();
-    goTab('list', document.getElementById('tabList'));
-  });
-}
-
-// ══════════════════════════════════════════════
-// 목록
-// ══════════════════════════════════════════════
-function renderList() {
-  const regionF = document.getElementById('filterRegion').value;
-  const kw      = document.getElementById('filterKw').value.toLowerCase();
-
-  const filtered = props.filter(p => {
-    if (regionF && !p.region.startsWith(regionF)) return false;
-    if (kw && !p.name.toLowerCase().includes(kw) && !(p.address||'').toLowerCase().includes(kw)) return false;
+function renderCustList() {
+  const kw = document.getElementById('custSearch').value.toLowerCase();
+  const f = custs.filter(c => {
+    if(cfFilter && !(c.priority||'').includes(cfFilter)) return false;
+    if(kw && !c.phone.includes(kw) && !(c.region||'').toLowerCase().includes(kw)) return false;
     return true;
   });
-
-  document.getElementById('listCount').innerHTML = '<strong>' + filtered.length + '</strong>건';
-
-  const tbody = document.getElementById('listBody');
-  if (!filtered.length) {
-    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:40px;color:var(--muted)">매물이 없습니다.</td></tr>';
-    return;
-  }
-
-  tbody.innerHTML = filtered.map(p => {
-    const taxBadge = p.tax === 'O'
-      ? '<span class="badge b-green">✓ ' + fmtW(p.taxamt) + '</span>'
-      : '<span class="badge b-x">✗</span>';
-    const rBadge = p.ramt
-      ? '<span class="r-hl">' + fmtR(p.ramt) + '</span>'
-      : '-';
-    const dup = p.duplex === 'O' ? '<span style="color:var(--gold)">복층</span>' : '일반';
-    const imgDot = p.images && p.images.length ? '<span class="img-dot" title="속지 있음"></span>' : '';
-    return '<tr onclick="openForm(props.find(x=>x.id===' + p.id + '))">' +
-      '<td style="color:var(--muted);font-size:11px">' + p.regionFull + '</td>' +
-      '<td style="font-weight:700">' + p.name + imgDot + '</td>' +
-      '<td style="color:var(--muted);font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (p.address||'-') + '</td>' +
-      '<td class="price-hl">' + fmtW(p.price) + '</td>' +
-      '<td style="color:var(--cyan);font-weight:700">' + fmtW(p.mortgage) + '</td>' +
-      '<td>' + taxBadge + '</td>' +
-      '<td>' + rBadge + '</td>' +
-      '<td>' + p.rooms + '방 ' + p.baths + '욕</td>' +
-      '<td>' + dup + '</td>' +
-      '<td onclick="event.stopPropagation()">' +
-        '<div class="act-btns">' +
-          '<button class="act-btn" onclick="openForm(props.find(x=>x.id===' + p.id + '))">수정</button>' +
-          '<button class="act-btn del" onclick="delFromList(' + p.id + ')">삭제</button>' +
-        '</div>' +
-      '</td>' +
-    '</tr>';
+  document.getElementById('custCnt').textContent = f.length+'명';
+  const el = document.getElementById('custList');
+  if(!f.length) { el.innerHTML='<div style="padding:20px;text-align:center;font-size:11px;color:var(--muted)">없음</div>'; return; }
+  el.innerHTML = f.map(c => {
+    const pri = c.priority||'';
+    const bc = pri.includes('🔴')?'p-red':pri.includes('🟠')?'p-or':pri.includes('🟡')?'p-ye':'p-gr';
+    return `<div class="ci ${selCust&&selCust.id===c.id?'sel':''}" onclick="selectCust(${c.id})">
+      <div class="ci-top"><span class="ci-phone">${c.phone}</span><span class="ci-pri ${bc}">${pri.replace(/[🔴🟠🟡❌✅]/g,'').trim().slice(0,5)}</span></div>
+      <div class="ci-region">${c.region||'지역미정'}</div>
+      <div class="ci-note">${(c.note||'').slice(0,35)}</div>
+    </div>`;
   }).join('');
 }
 
-function delFromList(id) {
-  showConfirm('이 매물을 삭제할까요?', '삭제', '취소', function() {
-    props = props.filter(p => p.id !== id);
-    localStorage.removeItem('dh_img_' + id);
-    persist();
-    renderList();
-    toast('🗑️ 삭제되었습니다.');
+function selectCust(id) {
+  selCust = custs.find(c=>c.id===id); if(!selCust) return;
+  renderCustList();
+  document.getElementById('noSel').style.display='none';
+  document.getElementById('selInfo').classList.add('on');
+  document.getElementById('siPhone').textContent = selCust.phone;
+  document.getElementById('siRegion').textContent = selCust.region||'지역미정';
+  const pri = selCust.priority||'';
+  const bc = pri.includes('🔴')?'p-red':pri.includes('🟠')?'p-or':pri.includes('🟡')?'p-ye':'p-gr';
+  document.getElementById('siBadge').className='ci-pri '+bc;
+  document.getElementById('siBadge').textContent = pri;
+  const chips = [];
+  const c = selCust;
+  if(c.kcb&&c.kcb!=='-') chips.push(`<div class="si-chip"><span>신용KCB</span> <strong>${c.kcb}</strong></div>`);
+  if(c.debt&&c.debt!=='-') chips.push(`<div class="si-chip"><span>기대출</span> <strong>${c.debt}</strong></div>`);
+  if(c.cash&&c.cash!=='-') chips.push(`<div class="si-chip"><span>가용현금</span> <strong>${c.cash}</strong></div>`);
+  if(c.noinput==='O') chips.push(`<div class="si-chip" style="border-color:var(--green);color:var(--green)"><strong>✓ 무입주 희망</strong></div>`);
+  if(c.schedule&&c.schedule!=='-') chips.push(`<div class="si-chip"><span>이사</span> <strong>${c.schedule}</strong></div>`);
+  document.getElementById('siChips').innerHTML = chips.join('');
+  document.getElementById('siNote').textContent = c.note||'특이사항 없음';
+  runMatch();
+}
+
+// ════════════════════════════════════════
+// 매칭 엔진
+// ════════════════════════════════════════
+function parseKcb(raw) {
+  const m = (raw||'').match(/\d+/);
+  return m ? parseInt(m[0]) : 0;
+}
+function parseCash(raw) {
+  const clean = (raw||'').replace(/[^\d]/g,'');
+  return clean ? parseInt(clean) : 0;
+}
+
+function runMatch() {
+  if(!selCust) return;
+  const c = selCust;
+  const region = (c.region||'').toLowerCase();
+  const note   = (c.note||'').toLowerCase();
+  const kcb    = parseKcb(c.kcb);
+  const cash   = parseCash(c.cash);
+  const wantsNoInput = c.noinput==='O'||note.includes('무입주')||note.includes('전액대출');
+  const wantsDuplex  = note.includes('복층');
+  const noDuplex     = note.includes('복층싫')||note.includes('복층x');
+
+  // 신용 등급
+  const creditOk    = kcb===0||kcb>=700;
+  const creditMid   = kcb>=600&&kcb<700;
+  const creditLow   = kcb>0&&kcb<600;
+  const creditLabel = creditLow ? `<strong style="color:var(--red)">${kcb}점 (신용 컨설팅 필요)</strong>`
+                    : creditMid ? `<strong style="color:var(--gold)">${kcb}점 (컨설팅 후 가능)</strong>`
+                    : kcb>0 ? `<strong style="color:var(--green)">${kcb}점 (정상 진행 가능)</strong>`
+                    : '<strong>미확인</strong>';
+
+  // 분석 바
+  const bars = [`<div class="ab ${creditLow?'bad':creditMid?'warn':'ok'}">신용 ${creditLabel}</div>`];
+  if(cash>0) bars.push(`<div class="ab ok">현금 <strong>${cash.toLocaleString()}만</strong></div>`);
+  if(wantsNoInput) bars.push(`<div class="ab ok">✓ 무입주</div>`);
+  document.getElementById('analysisBar').innerHTML = bars.join('');
+
+  // 지역 매칭 함수
+  function regionOk(p) {
+    const addr = (p.addr||p.region||'').toLowerCase();
+    if(!region||region==='-'||region.includes('지역무관')||region.includes('어디든')) return 1;
+    const words = region.split(/[\s·,\/]+/).filter(w=>w.length>1);
+    for(const w of words) {
+      if(addr.includes(w)||w.includes('상관없')) return 1;
+      if(w.includes('인천')&&addr.includes('인천')) return 0.8;
+      if(w.includes('서울')&&addr.includes('서울')) return 0.8;
+      const gWords = ['경기','수원','파주','안산','부천','광주','화성','포천','고양','김포','오산'];
+      if(gWords.some(g=>w.includes(g))&&(addr.includes('경기')||addr.includes(w.replace('경기 ','')))) return 0.8;
+    }
+    return 0;
+  }
+
+  // 전체 스코어링
+  const scored = props.map(p => {
+    if(!p.price) return null;
+    let sc = 0; const why = [];
+    const rOk = regionOk(p);
+    sc += rOk * 30; if(rOk>0) why.push('지역 매칭');
+
+    const mo = monthly(p.price, p.mortgage);
+    const loan = (p.price||0) - (p.mortgage||0);
+
+    // 담보실입 구조
+    if(p.mortgage===0)           { sc+=28; why.push('전액대출'); }
+    else if(p.mortgage<=2000)    { sc+=22; why.push('소액실입 '+p.mortgage.toLocaleString()+'만'); }
+    else if(cash>=p.mortgage)    { sc+=15; why.push('현금 충당 가능'); }
+    else if(cash>=p.mortgage*.6) { sc+=8;  why.push('현금 일부 가능'); }
+
+    // 무입주
+    if(wantsNoInput&&p.mortgage===0) { sc+=15; why.push('무입주 가능'); }
+
+    // 월납입
+    if(mo<=50) { sc+=10; why.push('월납입 '+mo+'만원 (적합)'); }
+    else if(mo<=80) { sc+=5; why.push('월납입 '+mo+'만원'); }
+    else why.push('월납입 '+mo+'만원');
+
+    // 취득세/R/복층
+    if(p.tax==='O')  { sc+=7; why.push('취득세 지원'); }
+    if(p.r>0)        { sc+=5; why.push('R '+p.r.toLocaleString()+'만'); }
+    if(wantsDuplex&&p.duplex==='O') { sc+=10; why.push('복층'); }
+    if(noDuplex&&p.duplex==='O') sc-=15;
+
+    // 메모 키워드
+    const memo = (p.memo||'').toLowerCase();
+    if(note.includes('역세권')&&(memo.includes('역세권')||memo.includes('역'))) { sc+=8; why.push('역세권'); }
+    if(note.includes('gtx')&&memo.includes('gtx')) { sc+=8; why.push('GTX'); }
+    if(note.includes('생애최초')&&memo.includes('생애최초')) { sc+=10; why.push('생애최초'); }
+    if(note.includes('재개발')&&memo.includes('재개발')) { sc+=8; why.push('재개발'); }
+    if(creditLow&&(memo.includes('어려운')||memo.includes('저신용')||p.mortgage===0)) { sc+=12; why.push('저신용 가능 구조'); }
+
+    return {...p, sc, why, mo, loan};
+  }).filter(Boolean).sort((a,b)=>b.sc-a.sc);
+
+  // 섹션 분류
+  const zeroList  = scored.filter(p=>p.mortgage===0);
+  const lowList   = scored.filter(p=>p.mortgage>0&&p.mortgage<=2000);
+  const midList   = scored.filter(p=>p.mortgage>2000&&p.mortgage<=5000);
+  const allTop    = scored.slice(0,8);
+
+  let out = '';
+
+  // 신용 분석 헤더
+  out += `<div style="background:rgba(0,201,167,.06);border:1px solid rgba(0,201,167,.2);border-radius:8px;padding:10px 13px;margin-bottom:10px;font-size:11px;line-height:1.9;color:var(--muted);">`;
+  out += `<strong style="color:var(--teal)">📊 대출 구조 분석</strong> &nbsp; ${creditLabel}<br>`;
+  if(creditOk)  out += '✅ 신축빌라 정상 진행 가능 — 감정가 활용 시 실입주금 절감 가능';
+  if(creditMid) out += '⚡ <strong style="color:var(--gold)">3개월 신용 컨설팅 후 신축 진행 권장</strong> — 현재도 감정가 구조로 일부 가능';
+  if(creditLow) out += '⚠️ <strong style="color:var(--red)">신용 600점 미만 — 컨설팅 3개월 필요</strong> — 현재는 구옥 추천';
+  out += `<br>대출 1억 기준 월납입 <strong style="color:var(--teal)">약 50만원</strong> (원리금 균등)`;
+  out += `</div>`;
+
+  // 섹션 1: 전액대출
+  if(zeroList.length) {
+    out += `<div class="sec-hd sec-zero">💚 전액대출 가능 — 실입주금 0원 (${zeroList.length}건)</div>`;
+    out += zeroList.slice(0,4).map((p,i)=>card(p,i,'zero')).join('');
+  }
+
+  // 섹션 2: 소액실입
+  if(lowList.length) {
+    out += `<div class="sec-hd sec-low">🩵 실입주금 2,000만원 이하 (${lowList.length}건)</div>`;
+    out += lowList.slice(0,4).map((p,i)=>card(p,i,'low')).join('');
+  }
+
+  // 섹션 3: 신용 활용 (600+)
+  if((creditOk||creditMid)&&midList.length) {
+    out += `<div class="sec-hd sec-mid">💜 신용 활용 매물 — 담보실입 5,000만 이하 (${midList.length}건)</div>`;
+    out += midList.slice(0,4).map((p,i)=>card(p,i,'mid')).join('');
+  }
+
+  // 섹션 4: 종합 추천
+  out += `<div class="sec-hd sec-all">🎯 종합 추천 TOP ${Math.min(8,allTop.length)}건 (점수순)</div>`;
+  out += allTop.map((p,i)=>card(p,i,'all')).join('');
+
+  // 구옥 추천 (신용 낮을 때)
+  if(creditLow) {
+    out += `<div class="old-banner">
+      ⚠️ <strong>신용점수 ${kcb}점 — 신축빌라 진행 어려려움</strong><br>
+      3개월 신용 컨설팅(${kcb}점 → 약 ${kcb+200}점) 후 신축 재도전을 권장드립니다.<br>
+      현재는 <strong>구옥 매물 매칭 시스템</strong>에서 이 손님의 희망지역 <strong style="color:var(--text)">${selCust.region}</strong> 으로 매칭해주세요.
+    </div>`;
+  }
+
+  document.getElementById('matchScroll').innerHTML = out;
+}
+
+function card(p, i, sec) {
+  const isAll = sec==='all';
+  const rCls = isAll ? (i===0?'g1':i===1?'g2':i===2?'g3':'') : '';
+  const emoji = isAll ? (i===0?'🥇':i===1?'🥈':i===2?'🥉':'') : '';
+  const mc = p.mo<=50?'var(--green)':p.mo<=80?'var(--gold)':'var(--red)';
+  const tags = [];
+  if(p.mortgage===0) tags.push('<span class="tag t-gr">전액대출</span>');
+  else if(p.mortgage<=2000) tags.push('<span class="tag t-te">실입'+p.mortgage.toLocaleString()+'만</span>');
+  if(p.tax==='O') tags.push('<span class="tag t-gr">취득세↓</span>');
+  if(p.r>0) tags.push('<span class="tag t-pu">R'+p.r.toLocaleString()+'만</span>');
+  if(p.duplex==='O') tags.push('<span class="tag t-go">복층</span>');
+  const memo = p.memo||'';
+  if(memo.includes('GTX')||memo.includes('gtx')) tags.push('<span class="tag t-re">GTX</span>');
+  if(memo.includes('역세권')||memo.includes('역')) tags.push('<span class="tag t-bl">역세권</span>');
+
+  return `<div class="rc ${rCls}" onclick="showDetail(${p.id})">
+    <div class="rc-rank">${emoji}</div>
+    <div class="rc-name">${p.name}</div>
+    <div class="rc-region">${p.region} ${p.addr?'· '+p.addr.slice(0,20)+'...':''}</div>
+    ${isAll?`<div style="font-size:10px;color:var(--purple);margin-bottom:4px">매칭 ${p.sc}점</div>`:''}
+    <div class="tags">${tags.join('')}</div>
+    <div class="rc-price-row">
+      <div class="rc-price">${p.price.toLocaleString()}만원</div>
+      <div class="rc-monthly" style="color:${mc}">월 ${p.mo}만원</div>
+    </div>
+    <div class="rc-mort">담보실입 ${p.mortgage>0?p.mortgage.toLocaleString()+'만':'전액대출'} · 대출 ${p.loan.toLocaleString()}만</div>
+    <div class="rc-why">${(p.why||[]).map(w=>`<div class="rc-why-item"><span class="why-dot">✓</span>${w}</div>`).join('')}</div>
+  </div>`;
+}
+
+// ════════════════════════════════════════
+// 매물 관리
+// ════════════════════════════════════════
+function buildRegionSidebar() {
+  const regions = {};
+  props.forEach(p => {
+    const base = (p.region||'기타').split(' ')[0];
+    if(!regions[base]) regions[base]=[];
+    regions[base].push(p);
+  });
+  const order = ['인천','경기','서울','기타'];
+  const sorted = [...Object.keys(regions)].sort((a,b)=>{
+    const ai=order.indexOf(a), bi=order.indexOf(b);
+    return (ai<0?99:ai)-(bi<0?99:bi);
+  });
+  let html = `<div class="ri ${selRegion===''?'sel':''}" onclick="setRegion('')">
+    <div class="ri-name">전체</div><div class="ri-count">${props.length}건</div>
+  </div>`;
+  sorted.forEach(r => {
+    html += `<div class="ri ${selRegion===r?'sel':''}" onclick="setRegion('${r}')">
+      <div class="ri-name">${r}</div><div class="ri-count">${regions[r].length}건</div>
+    </div>`;
+  });
+  document.getElementById('regionList').innerHTML = html;
+}
+
+function setRegion(r) {
+  selRegion = r;
+  buildRegionSidebar();
+  renderPropGrid();
+}
+
+function renderPropGrid() {
+  const filt  = document.getElementById('flFilter').value;
+  const kw    = document.getElementById('flKw').value.toLowerCase();
+  const f = props.filter(p => {
+    const addr = (p.addr||p.region||'').toLowerCase();
+    if(selRegion && !p.region.startsWith(selRegion)) return false;
+    if(filt==='zero'  && p.mortgage!==0) return false;
+    if(filt==='low'   && (p.mortgage===0||p.mortgage>2000)) return false;
+    if(filt==='tax'   && p.tax!=='O') return false;
+    if(filt==='duplex'&& p.duplex!=='O') return false;
+    if(filt==='r'     && !p.r) return false;
+    if(kw && !p.name.toLowerCase().includes(kw) && !addr.includes(kw)) return false;
+    return true;
+  });
+  document.getElementById('propLc').innerHTML = '<strong>'+f.length+'</strong>건';
+  const el = document.getElementById('propCards');
+  if(!f.length) { el.innerHTML='<div style="padding:40px;text-align:center;color:var(--muted);grid-column:1/-1;">매물이 없습니다.</div>'; return; }
+  el.innerHTML = f.map(p => {
+    const mo = monthly(p.price, p.mortgage);
+    const mc = mo<=50?'var(--green)':mo<=80?'var(--gold)':'var(--red)';
+    const tags = [];
+    if(p.mortgage===0) tags.push('<span class="tag t-gr">전액대출</span>');
+    else if(p.mortgage<=2000) tags.push('<span class="tag t-te">실입'+p.mortgage.toLocaleString()+'만</span>');
+    if(p.tax==='O') tags.push('<span class="tag t-gr">취득세↓</span>');
+    if(p.r>0) tags.push('<span class="tag t-pu">R'+p.r.toLocaleString()+'만</span>');
+    if(p.duplex==='O') tags.push('<span class="tag t-go">복층</span>');
+    const memo = p.memo||'';
+    if(memo.includes('GTX')) tags.push('<span class="tag t-re">GTX</span>');
+    if(memo.includes('역세권')||memo.includes('역')) tags.push('<span class="tag t-bl">역세권</span>');
+    return `<div class="pc" onclick="showDetail(${p.id})">
+      <button class="pc-edit" onclick="event.stopPropagation();openPropForm(${p.id})">수정</button>
+      <div class="pc-region">${p.region}</div>
+      <div class="pc-name">${p.name}</div>
+      <div class="pc-addr">${p.addr||'주소 미등록'}</div>
+      <div class="pc-price">${p.price?p.price.toLocaleString():'?'}만원</div>
+      <div class="pc-monthly" style="color:${mc}">월 ${mo}만원</div>
+      <div class="pc-mort">담보실입 ${p.mortgage>0?p.mortgage.toLocaleString()+'만':'전액대출'} · 대출 ${((p.price||0)-(p.mortgage||0)).toLocaleString()}만</div>
+      <div class="pc-tags">${tags.join('')}</div>
+    </div>`;
+  }).join('');
+}
+
+// ── 매물 폼 ──
+function openPropForm(id) {
+  const p = id ? props.find(x=>x.id===id) : null;
+  document.getElementById('pfcTitle').textContent = p ? '✏️ 수정' : '➕ 신규 등록';
+  document.getElementById('pfDelBtn').style.display = p ? '' : 'none';
+  document.getElementById('pfId').value = p?.id||'';
+  document.getElementById('pfRegion').value = p?.region||'';
+  document.getElementById('pfName').value = p?.name||'';
+  document.getElementById('pfAddr').value = p?.addr||'';
+  document.getElementById('pfType').value = p?.type||'쓰리룸';
+  document.getElementById('pfPrice').value = p?.price||'';
+  document.getElementById('pfMort').value = p?.mortgage||'';
+  document.getElementById('pfR').value = p?.r||'';
+  document.getElementById('pfMemo').value = p?.memo||'';
+  setOX2('pfDuplex', p?.duplex||'X');
+  setOX2('pfTax', p?.tax||'X');
+  updateMonthly();
+}
+
+function updateMonthly() {
+  const price = parseInt(document.getElementById('pfPrice').value)||0;
+  const mort  = parseInt(document.getElementById('pfMort').value)||0;
+  const mo    = monthly(price, mort);
+  const el    = document.getElementById('monthlyHint');
+  if(price) {
+    const mc = mo<=50?'var(--green)':mo<=80?'var(--gold)':'var(--red)';
+    el.innerHTML = `<span style="color:${mc}">월 ${mo}만원</span> (대출 ${((price-mort)||0).toLocaleString()}만)<small>기준: 대출 1억 = 월 50만원</small>`;
+  } else el.innerHTML = '월납입 계산 대기<small>기준: 대출 1억 = 월 50만원</small>';
+}
+
+function setOX(btn) {
+  const f = btn.dataset.f;
+  btn.closest('.ox').querySelectorAll('.ox-btn').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  document.getElementById(f).value = btn.classList.contains('o')?'O':'X';
+}
+function setOX2(fieldId, val) {
+  document.getElementById(fieldId).value = val;
+  const grp = document.getElementById(fieldId).previousElementSibling;
+  if(!grp?.classList.contains('ox')) return;
+  grp.querySelectorAll('.ox-btn').forEach(b=>{
+    b.classList.remove('on');
+    if((val==='O'&&b.classList.contains('o'))||(val==='X'&&b.classList.contains('x'))) b.classList.add('on');
   });
 }
 
-// ══════════════════════════════════════════════
+function saveProp() {
+  const region = document.getElementById('pfRegion').value.trim();
+  const name   = document.getElementById('pfName').value.trim();
+  const price  = parseInt(document.getElementById('pfPrice').value)||0;
+  if(!region||!name||!price) { toast('지역, 단지명, 분양가는 필수입니다.',true); return; }
+  const editId = document.getElementById('pfId').value;
+  const mo = monthly(price, parseInt(document.getElementById('pfMort').value)||0);
+  const p = {
+    id: editId ? parseInt(editId) : nxtId++,
+    region, addr: document.getElementById('pfAddr').value,
+    name, type: document.getElementById('pfType').value,
+    price, mortgage: parseInt(document.getElementById('pfMort').value)||0,
+    tax: document.getElementById('pfTax').value,
+    r: parseInt(document.getElementById('pfR').value)||0,
+    duplex: document.getElementById('pfDuplex').value,
+    memo: document.getElementById('pfMemo').value,
+    monthly: mo,
+  };
+  if(editId) { const i=props.findIndex(x=>x.id===parseInt(editId)); if(i>=0) props[i]=p; else props.push(p); }
+  else props.push(p);
+  saveProps(); buildRegionSidebar(); renderPropGrid();
+  toast(editId?'✅ 수정되었습니다!':'✅ 저장되었습니다!');
+  openPropForm(null);
+}
+
+function delProp() {
+  const id = parseInt(document.getElementById('pfId').value); if(!id) return;
+  document.getElementById('cfmMsg').textContent = '이 매물을 삭제할까요?';
+  document.getElementById('cfmBg').classList.add('on');
+  document.getElementById('cfmOk').onclick = () => {
+    props = props.filter(p=>p.id!==id);
+    saveProps(); buildRegionSidebar(); renderPropGrid(); openPropForm(null);
+    document.getElementById('cfmBg').classList.remove('on');
+    toast('🗑️ 삭제되었습니다.');
+  };
+}
+
+// ── 상세 모달 ──
+function showDetail(id) {
+  const p = props.find(x=>x.id===id); if(!p) return;
+  const mo = monthly(p.price, p.mortgage);
+  const mc = mo<=50?'var(--green)':mo<=80?'var(--gold)':'var(--red)';
+  document.getElementById('modalContent').innerHTML =
+    `<div style="font-size:17px;font-weight:900;color:var(--teal);margin-bottom:3px">${p.name}</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:14px">${p.addr||p.region}</div>
+    <div style="background:linear-gradient(135deg,rgba(0,201,167,.2),rgba(0,180,216,.1));border:1px solid rgba(0,201,167,.3);border-radius:8px;padding:14px;text-align:center;margin-bottom:12px;">
+      <div style="font-size:10px;color:var(--muted);margin-bottom:2px">분양가</div>
+      <div style="font-size:26px;font-weight:900;color:var(--teal)">${p.price?p.price.toLocaleString():'?'}만원</div>
+      <div style="font-size:12px;font-weight:700;color:${mc};margin-top:3px">월납입 약 ${mo}만원</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:2px">담보실입 ${p.mortgage>0?p.mortgage.toLocaleString()+'만':'전액대출'} · 대출 ${((p.price||0)-(p.mortgage||0)).toLocaleString()}만</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:12px;">
+      <div style="background:var(--card);border-radius:6px;padding:8px 10px;"><div style="font-size:9px;color:var(--muted)">취득세</div><div style="font-size:12px;font-weight:700;color:${p.tax==='O'?'var(--green)':'var(--muted)'}">${p.tax==='O'?'✓ 지원':'미지원'}</div></div>
+      <div style="background:var(--card);border-radius:6px;padding:8px 10px;"><div style="font-size:9px;color:var(--muted)">복층</div><div style="font-size:12px;font-weight:700;color:${p.duplex==='O'?'var(--gold)':'var(--muted)'}">${p.duplex==='O'?'복층':'일반'}</div></div>
+      <div style="background:var(--card);border-radius:6px;padding:8px 10px;"><div style="font-size:9px;color:var(--muted)">R</div><div style="font-size:12px;font-weight:700;color:var(--purple)">${p.r>0?p.r.toLocaleString()+'만':'-'}</div></div>
+      <div style="background:var(--card);border-radius:6px;padding:8px 10px;"><div style="font-size:9px;color:var(--muted)">타입</div><div style="font-size:12px;font-weight:700">${p.type}</div></div>
+    </div>
+    ${p.memo?`<div style="background:rgba(244,164,66,.08);border:1px solid rgba(244,164,66,.2);border-radius:7px;padding:10px 12px;font-size:11px;color:var(--gold);line-height:1.7;margin-bottom:12px;">✨ ${p.memo}</div>`:''}`;
+  const btn = document.createElement('button');
+  btn.style.cssText='background:var(--blue);border:none;color:#fff;border-radius:7px;padding:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;width:100%;';
+  btn.textContent='🗺️ 네이버지도에서 위치 확인';
+  btn.onclick=()=>window.open('https://map.naver.com/p/search/'+encodeURIComponent(p.addr||p.name+' '+p.region),'_blank');
+  document.getElementById('modalContent').appendChild(btn);
+  document.getElementById('modalBg').classList.add('on');
+}
+function closeModal(){document.getElementById('modalBg').classList.remove('on');}
+
+// ════════════════════════════════════════
+// 고객 DB
+// ════════════════════════════════════════
+function loadPropXlsx(input) {
+  const file=input.files[0]; if(!file) return;
+  const r=new FileReader();
+  r.onload=e=>{
+    if(typeof XLSX==='undefined'){toast('잠시 후 다시 시도하세요.',true);return;}
+    const wb=XLSX.read(e.target.result,{type:'array'});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    const raw=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+    let hRow=-1;
+    for(let i=0;i<Math.min(5,raw.length);i++){
+      if(raw[i].some(c=>String(c).includes('단지명')||String(c).includes('분양가'))){hRow=i;break;}
+    }
+    if(hRow<0){toast('헤더를 찾을 수 없습니다.',true);return;}
+    const hs=raw[hRow].map(h=>String(h).trim());
+    const get=(row,nm)=>{const i=hs.findIndex(h=>h.includes(nm));return i>=0?String(row[i]||'').trim():'';};
+    const ti=v=>{const n=parseInt(String(v).replace(/,/g,''));return isNaN(n)?0:n;};
+    props=[];
+    for(let i=hRow+1;i<raw.length;i++){
+      const row=raw[i];
+      if(row.every(c=>c===''||c===null)) continue;
+      const name=get(row,'단지명'); if(!name) continue;
+      const price=ti(get(row,'분양가')), mort=ti(get(row,'담보실입'));
+      props.push({id:i,region:get(row,'지역'),addr:get(row,'주소'),name,type:get(row,'타입')||'쓰리룸',price,mortgage:mort,
+        tax:get(row,'취득세지원'),r:ti(get(row,'R금액실제')||get(row,'R금액(×100만원)')?ti(get(row,'R금액실제')):0),
+        duplex:get(row,'복층'),memo:(get(row,'비고')||'').slice(0,120),monthly:monthly(price,mort)});
+    }
+    saveProps(); buildRegionSidebar(); renderPropGrid();
+    toast(`✓ ${props.length}개 매물 불러오기 완료`);
+  };
+  r.readAsArrayBuffer(file); input.value='';
+}
+
+function loadCustXlsx(input) {
+  const file=input.files[0]; if(!file) return;
+  const r=new FileReader();
+  r.onload=e=>{
+    if(typeof XLSX==='undefined'){toast('잠시 후 다시 시도하세요.',true);return;}
+    const wb=XLSX.read(e.target.result,{type:'array'});
+    let loaded=0;
+    wb.SheetNames.forEach(sn=>{
+      const ws=wb.Sheets[sn];
+      const raw=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      let hRow=-1;
+      for(let i=0;i<Math.min(5,raw.length);i++){
+        if(raw[i].some(c=>String(c).includes('연락처'))){hRow=i;break;}
+      }
+      if(hRow<0) return;
+      const hs=raw[hRow].map(h=>String(h).trim());
+      const get=(row,nm)=>{const i=hs.findIndex(h=>h.includes(nm));return i>=0?String(row[i]||'').trim():'';};
+      for(let i=hRow+1;i<raw.length;i++){
+        const row=raw[i];
+        if(row.every(c=>c===''||c===null)) continue;
+        const phone=get(row,'연락처');
+        if(!phone||phone==='연락처') continue;
+        if(custs.find(c=>c.phone===phone)) continue;
+        custs.push({id:Date.now()+i,no:get(row,'No')||String(i),date:get(row,'문의일'),phone,
+          channel:get(row,'유입')||get(row,'채널'),region:get(row,'희망지역'),
+          kcb:get(row,'KCB')||get(row,'신용점수(KCB)'),debt:get(row,'기대출'),
+          cash:get(row,'가용현금'),noinput:get(row,'무입주'),income:get(row,'소득'),
+          note:get(row,'특이사항')||get(row,'통화내용')||get(row,'조건'),
+          schedule:get(row,'이사일정'),priority:get(row,'우선순위'),status:get(row,'관리현황')||get(row,'현황')});
+        loaded++;
+      }
+    });
+    saveCusts(); renderCustList(); renderCustDB();
+    toast(`✓ ${loaded}명 불러오기 완료`);
+  };
+  r.readAsArrayBuffer(file); input.value='';
+}
+
+function renderCustDB() {
+  const pri=document.getElementById('cdbPri').value;
+  const kw=document.getElementById('cdbKw').value.toLowerCase();
+  const f=custs.filter(c=>{
+    if(pri&&!(c.priority||'').includes(pri)) return false;
+    if(kw&&!c.phone.includes(kw)&&!(c.region||'').toLowerCase().includes(kw)&&!(c.note||'').toLowerCase().includes(kw)) return false;
+    return true;
+  });
+  document.getElementById('cdbLc').innerHTML='<strong>'+f.length+'</strong>명';
+  const tb=document.getElementById('custBody');
+  if(!f.length){tb.innerHTML='<tr><td colspan="13" style="text-align:center;padding:30px;color:var(--muted)">없음</td></tr>';return;}
+  const pc=p=>p.includes('🔴')?'color:var(--red)':p.includes('🟠')?'color:var(--orange)':p.includes('🟡')?'color:var(--gold)':'color:var(--muted)';
+  tb.innerHTML=f.map(c=>`<tr onclick="selectCust(${c.id});goTab('match',document.getElementById('tabMatch'))">
+    <td style="color:var(--muted)">${c.no}</td><td style="color:var(--muted)">${c.date||'-'}</td>
+    <td style="font-weight:700">${c.phone}</td><td style="font-size:10px;color:var(--muted)">${c.channel||'-'}</td>
+    <td>${c.region||'-'}</td><td style="font-size:11px">${c.kcb||'-'}</td>
+    <td style="font-size:10px;color:var(--muted)">${c.debt||'-'}</td><td style="font-size:10px;color:var(--muted)">${c.cash||'-'}</td>
+    <td>${c.noinput==='O'?'<span style="color:var(--green);font-weight:700">O</span>':c.noinput||'-'}</td>
+    <td style="font-weight:700;${pc(c.priority||'')}">${c.priority||'-'}</td>
+    <td style="font-size:10px;color:var(--muted);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.note||'-'}</td>
+    <td style="font-size:10px;color:var(--muted)">${c.schedule||'-'}</td>
+    <td style="font-size:10px;color:var(--gold)">${c.status||'-'}</td>
+  </tr>`).join('');
+}
+
+// ════════════════════════════════════════
+// 지도
+// ════════════════════════════════════════
+const COORDS = {
+  '인천 부평구':[37.508,126.722],'인천 미추홀구':[37.455,126.660],
+  '인천 남동구':[37.449,126.731],'인천 서구':[37.544,126.673],
+  '인천 계양구':[37.537,126.738],'인천 중구':[37.474,126.622],
+  '인천 연수구':[37.410,126.679],'인천':[37.456,126.705],
+  '서울 동대문구':[37.574,127.040],'서울 금천구':[37.457,126.895],
+  '서울 강북구':[37.640,127.012],'서울 은평구':[37.602,126.930],'서울':[37.560,126.975],
+  '경기 수원시':[37.264,127.029],'경기 안산시':[37.322,126.831],
+  '경기 파주시':[37.760,126.780],'경기 광주시':[37.430,127.255],
+  '경기 부천시':[37.504,126.766],'경기 화성시':[37.200,126.830],
+  '경기 포천시':[37.894,127.200],'경기 고양시':[37.658,126.832],
+  '경기 김포시':[37.615,126.716],'경기 오산시':[37.150,127.077],'경기':[37.400,127.000],
+};
+
+function getCoords(p) {
+  const addr = p.addr||p.region||'';
+  for(const [key,c] of Object.entries(COORDS)){
+    if(addr.includes(key)) return [c[0]+(Math.random()-.5)*.006, c[1]+(Math.random()-.5)*.006];
+  }
+  return [37.47+(Math.random()-.5)*.05, 126.73+(Math.random()-.5)*.05];
+}
+
+function mkIcon(clr, active, lbl) {
+  const l = (lbl||'신축').slice(0,2);
+  return L.divIcon({
+    html: active
+      ? `<div style="animation:bounce .4s ease"><svg width="44" height="54" viewBox="0 0 44 54" xmlns="http://www.w3.org/2000/svg"><circle cx="22" cy="21" r="20" fill="${clr}" opacity=".15"/><path d="M22 3C12.6 3 5 10.6 5 19c0 6 3.1 11.3 7.7 14.6L22 52l9.3-18.4C36.9 30.3 39 25 39 19 39 10.6 31.4 3 22 3z" fill="${clr}" stroke="#e63946" stroke-width="3"/><circle cx="22" cy="19" r="9.5" fill="white" opacity=".95"/><text x="22" y="22.5" text-anchor="middle" font-size="7.5" font-weight="bold" fill="${clr}" font-family="Arial">${l}</text></svg></div>`
+      : `<svg width="28" height="36" viewBox="0 0 28 36" xmlns="http://www.w3.org/2000/svg"><path d="M14 0C6.268 0 0 6.268 0 14c0 4.667 2.333 8.867 5.833 11.433L14 36l8.167-10.567C25.667 22.867 28 18.667 28 14 28 6.268 21.732 0 14 0z" fill="${clr}"/><circle cx="14" cy="14" r="7" fill="white" opacity=".9"/><text x="14" y="17.5" text-anchor="middle" font-size="7" font-weight="bold" fill="${clr}" font-family="Arial">${l}</text></svg>`,
+    className:'', iconSize:active?[44,54]:[28,36], iconAnchor:active?[22,54]:[14,36]
+  });
+}
+
+function initMap() {
+  if(leafMap) return;
+  leafMap = L.map('mapEl',{center:[37.47,126.73],zoom:11});
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{
+    attribution:'© OpenStreetMap © CARTO', subdomains:'abcd', maxZoom:20
+  }).addTo(leafMap);
+}
+
+function setMapF(val,btn){
+  mapFilter=val;
+  document.querySelectorAll('#mapFilter .chip').forEach(c=>c.classList.remove('on'));
+  btn.classList.add('on'); renderMap();
+}
+
+function renderMap(){
+  if(!leafMap) return;
+  Object.values(markers).forEach(m=>leafMap.removeLayer(m));
+  markers={}; activeId=null;
+  const regF=document.getElementById('mapRegF').value;
+  const filtered=props.filter(p=>{
+    if(regF&&!(p.addr||p.region||'').includes(regF)) return false;
+    if(mapFilter==='zero'&&p.mortgage!==0) return false;
+    if(mapFilter==='tax'&&p.tax!=='O') return false;
+    if(mapFilter==='duplex'&&p.duplex!=='O') return false;
+    return true;
+  });
+
+  // 왼쪽 목록
+  document.getElementById('mapPropList').innerHTML = filtered.map(p=>{
+    const mo=monthly(p.price,p.mortgage);
+    const mc=mo<=50?'var(--green)':mo<=80?'var(--gold)':'var(--red)';
+    return `<div class="mpi" onclick="focusMarker(${p.id})">
+      <div class="mpi-name">${p.name}</div>
+      <div class="mpi-region">${p.region}</div>
+      <div class="mpi-price">${p.price?p.price.toLocaleString()+'만':'-'}
+        <span style="font-size:10px;color:${mc};margin-left:4px">월${mo}만</span>
+        ${p.mortgage===0?'<span style="font-size:9px;color:var(--green);margin-left:3px">전액대출</span>':''}
+        ${p.tax==='O'?'<span style="font-size:9px;color:var(--green);margin-left:3px">취득세↓</span>':''}
+      </div>
+    </div>`;
+  }).join('');
+
+  // 마커
+  const bounds=[];
+  filtered.forEach(p=>{
+    const coords=getCoords(p);
+    p._c=coords; bounds.push(coords);
+    const clr = p.mortgage===0?'#2dc653':p.tax==='O'?'#00c9a7':p.r>0?'#9b5de5':'#7a9cc0';
+    const lbl = p.name.slice(0,2);
+    const m = L.marker(coords,{icon:mkIcon(clr,false,lbl)}).addTo(leafMap);
+    m.on('click',()=>{
+      if(activeId&&markers[activeId]&&activeId!==p.id){
+        const prev=props.find(x=>x.id===activeId);
+        if(prev){const pc=prev.mortgage===0?'#2dc653':prev.tax==='O'?'#00c9a7':prev.r>0?'#9b5de5':'#7a9cc0';markers[activeId].setIcon(mkIcon(pc,false,prev.name.slice(0,2)));markers[activeId].setZIndexOffset(0);}
+      }
+      activeId=p.id; m.setIcon(mkIcon(clr,true,lbl)); m.setZIndexOffset(9999);
+      leafMap.setView(coords,Math.max(leafMap.getZoom(),15),{animate:true});
+      showMapDetail(p.id);
+    });
+    markers[p.id]=m;
+  });
+  if(bounds.length>1) leafMap.fitBounds(bounds,{padding:[30,30]});
+  else if(bounds.length===1) leafMap.setView(bounds[0],14);
+}
+
+function focusMarker(id){
+  const p=props.find(x=>x.id===id); if(!p) return;
+  const coords=p._c||getCoords(p);
+  if(activeId&&markers[activeId]&&activeId!==id){
+    const prev=props.find(x=>x.id===activeId);
+    if(prev){const pc=prev.mortgage===0?'#2dc653':prev.tax==='O'?'#00c9a7':prev.r>0?'#9b5de5':'#7a9cc0';markers[activeId].setIcon(mkIcon(pc,false,prev.name.slice(0,2)));markers[activeId].setZIndexOffset(0);}
+  }
+  activeId=id;
+  const clr=p.mortgage===0?'#2dc653':p.tax==='O'?'#00c9a7':p.r>0?'#9b5de5':'#7a9cc0';
+  if(markers[id]){markers[id].setIcon(mkIcon(clr,true,p.name.slice(0,2)));markers[id].setZIndexOffset(9999);}
+  leafMap.flyTo(coords,16,{animate:true,duration:0.6});
+  showMapDetail(id);
+}
+
+function showMapDetail(id){
+  const p=props.find(x=>x.id===id); if(!p) return;
+  const mo=monthly(p.price,p.mortgage);
+  const mc=mo<=50?'var(--green)':mo<=80?'var(--gold)':'var(--red)';
+  const col=document.getElementById('mapDetailCol');
+  col.classList.add('on');
+  document.getElementById('mdcBody').innerHTML =
+    `<div style="font-size:15px;font-weight:900;color:var(--teal);margin-bottom:3px;padding-right:30px">${p.name}</div>
+    <div style="font-size:10px;color:var(--muted);margin-bottom:12px">${p.addr||p.region}</div>
+    <div style="background:linear-gradient(135deg,rgba(0,201,167,.2),rgba(0,180,216,.1));border:1px solid rgba(0,201,167,.3);border-radius:8px;padding:12px;text-align:center;margin-bottom:10px;">
+      <div style="font-size:10px;color:var(--muted)">분양가</div>
+      <div style="font-size:22px;font-weight:900;color:var(--teal)">${p.price?p.price.toLocaleString():'?'}만</div>
+      <div style="font-size:12px;font-weight:700;color:${mc};margin-top:2px">월 ${mo}만원</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:2px">담보실입 ${p.mortgage>0?p.mortgage.toLocaleString()+'만':'전액대출'}</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:9px;">
+      <div style="background:var(--card);border-radius:6px;padding:7px 9px;"><div style="font-size:9px;color:var(--muted)">취득세</div><div style="font-size:12px;font-weight:700;color:${p.tax==='O'?'var(--green)':'var(--muted)'}">${p.tax==='O'?'✓ 지원':'미지원'}</div></div>
+      <div style="background:var(--card);border-radius:6px;padding:7px 9px;"><div style="font-size:9px;color:var(--muted)">복층</div><div style="font-size:12px;font-weight:700;color:${p.duplex==='O'?'var(--gold)':'var(--muted)'}">${p.duplex==='O'?'복층':'일반'}</div></div>
+      <div style="background:var(--card);border-radius:6px;padding:7px 9px;"><div style="font-size:9px;color:var(--muted)">R</div><div style="font-size:12px;font-weight:700;color:var(--purple)">${p.r>0?p.r.toLocaleString()+'만':'-'}</div></div>
+      <div style="background:var(--card);border-radius:6px;padding:7px 9px;"><div style="font-size:9px;color:var(--muted)">타입</div><div style="font-size:12px;font-weight:700">${p.type}</div></div>
+    </div>
+    ${p.memo?`<div style="background:rgba(244,164,66,.08);border:1px solid rgba(244,164,66,.2);border-radius:7px;padding:8px 10px;font-size:10px;color:var(--gold);line-height:1.6;margin-bottom:8px;">${p.memo}</div>`:''}`;
+  const btn=document.createElement('button');
+  btn.style.cssText='background:var(--blue);border:none;color:#fff;border-radius:7px;padding:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;width:100%;';
+  btn.textContent='🗺️ 네이버지도 위치 확인';
+  btn.onclick=()=>window.open('https://map.naver.com/p/search/'+encodeURIComponent(p.addr||p.name),'_blank');
+  document.getElementById('mdcBody').appendChild(btn);
+}
+
+// ════════════════════════════════════════
 // 엑셀 내보내기
-// ══════════════════════════════════════════════
-function doExport() {
-  if (!props.length) { toast('매물이 없습니다.', true); return; }
-  const headers = ['지역','세부지역','주소','단지명','타입','분양가(만원)','담보실입(만원)',
-    '취득세지원','취득세금액(만원)','세금지원','세금지원내용',
-    'R금액(×100만원)','R금액실제(만원)','R조건','방수','화장실','복층','주차','비고',
-    '마커설명(지도표시용)'];
-  const rows = props.map(p => [
-    p.regionFull||p.region, p.subregion, p.address, p.name, p.type,
-    p.price, p.mortgage,
-    p.tax, p.taxamt, p.taxsup, p.taxdetail,
-    p.ramt, (p.ramt||0)*100, p.rmemo,
-    p.rooms, p.baths, p.duplex, p.parking, p.memo,
-    '분양가 ' + (p.price ? p.price.toLocaleString() + '만' : '-') +
-    ' | 담보실입 ' + (p.mortgage ? p.mortgage.toLocaleString() + '만' : '-') +
-    ' | R ' + (p.ramt ? (p.ramt*100).toLocaleString() + '만' : '-') +
-    (p.tax==='O' ? ' | 취득세↓' : '') +
-    (p.duplex==='O' ? ' | 복층' : '') +
-    (p.memo ? ' | ' + p.memo : '')
-  ]);
-  const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-  ws['!cols'] = [10,10,30,20,8,14,14,10,14,8,20,14,14,16,6,8,8,8,20].map(w=>({wch:w}));
-  XLSX.utils.book_append_sheet(wb, ws, '매물목록');
-  XLSX.writeFile(wb, '돌고래하우스_매물_' + new Date().toISOString().slice(0,10) + '.xlsx');
+// ════════════════════════════════════════
+function doExport(){
+  if(typeof XLSX==='undefined'){toast('잠시 후 다시 시도하세요.',true);return;}
+  if(!props.length){toast('매물이 없습니다.',true);return;}
+  const h=['지역','단지명','주소','타입','분양가(만원)','담보실입(만원)','월납입(만원)','취득세지원','R(만원)','복층','특징','마커설명'];
+  const rows=props.map(p=>{
+    const mo=monthly(p.price,p.mortgage);
+    return[p.region,p.name,p.addr||p.region,p.type,p.price,p.mortgage,mo,p.tax,p.r,p.duplex,p.memo,
+      (p.price?p.price.toLocaleString():'?')+'만 | 월'+mo+'만 | 담보실입'+(p.mortgage>0?p.mortgage.toLocaleString()+'만':'전액대출')+(p.r>0?' | R'+p.r.toLocaleString()+'만':'')+(p.tax==='O'?' | 취득세↓':'')+(p.duplex==='O'?' | 복층':'')];
+  });
+  const wb=XLSX.utils.book_new();
+  const ws=XLSX.utils.aoa_to_sheet([h,...rows]);
+  ws['!cols']=[12,20,30,8,13,13,10,8,10,6,25,45].map(w=>({wch:w}));
+  XLSX.utils.book_append_sheet(wb,ws,'신축빌라');
+  const ws2=XLSX.utils.aoa_to_sheet([h,...rows.filter((_,i)=>props[i].mortgage===0)]);
+  ws2['!cols']=ws['!cols'];
+  XLSX.utils.book_append_sheet(wb,ws2,'전액대출');
+  XLSX.writeFile(wb,'돌고래_신축_'+new Date().toISOString().slice(0,10)+'.xlsx');
   toast('엑셀 저장 완료 ✓');
 }
 
-// ══════════════════════════════════════════════
-// 엑셀 불러오기
-// ══════════════════════════════════════════════
-function doImport(input) {
-  const file = input.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    const wb = XLSX.read(e.target.result, { type: 'array' });
-    const ws = wb.Sheets[wb.SheetNames[0]];
-    const raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
-    let hRow = -1;
-    for (let i = 0; i < Math.min(5, raw.length); i++) {
-      if (raw[i].some(c => String(c).includes('주소') || String(c).includes('단지') || String(c).includes('분양가'))) {
-        hRow = i; break;
-      }
-    }
-    if (hRow < 0) { toast('헤더를 찾을 수 없습니다.', true); return; }
-    const hs = raw[hRow].map(h => String(h).trim());
-    const get = (row, nm) => { const i = hs.findIndex(h => h.includes(nm)); return i >= 0 ? row[i] : ''; };
-    let cnt = 0;
-    for (let i = hRow + 1; i < raw.length; i++) {
-      const row = raw[i];
-      if (row.every(c => c === '' || c === null)) continue;
-      const name = String(get(row, '단지') || get(row, '건물명') || '').trim();
-      const addr = String(get(row, '주소') || '').trim();
-      if (!name && !addr) continue;
-      const region = String(get(row, '지역') || '').trim() || '기타';
-      const addrParts = addr.split(' ');
-      props.push({
-        id: nextId++,
-        region: region.includes('-') ? region.split('-')[0] : region,
-        regionFull: region,
-        subregion: addrParts.length >= 2 ? addrParts[1] : '',
-        address: addr, name,
-        type:      String(get(row, '타입') || '쓰리룸'),
-        price:     parseInt(get(row, '분양가')) || 0,
-        mortgage:  parseInt(get(row, '담보실입')) || 0,
-        tax:       String(get(row, '취득세지원') || 'X'),
-        taxamt:    parseInt(get(row, '취득세금액')) || 0,
-        taxsup:    String(get(row, '세금지원') || 'X'),
-        taxdetail: String(get(row, '세금지원내용') || ''),
-        r: 'O',
-        ramt:      parseInt(get(row, 'R금액')) || 0,
-        rmemo:     String(get(row, 'R조건') || ''),
-        rooms:     String(get(row, '방수') || '3'),
-        baths:     String(get(row, '화장실') || '2'),
-        duplex:    String(get(row, '복층') || 'X'),
-        parking:   String(get(row, '주차') || ''),
-        status:    '분양중',
-        memo:      String(get(row, '비고') || ''),
-        images:    [],
-        updatedAt: new Date().toISOString(),
-      });
-      cnt++;
-    }
-    persist();
-    toast(cnt + '개 불러오기 완료 ✓');
-    renderList();
-  };
-  reader.readAsArrayBuffer(file);
-  input.value = '';
-}
-
-// ══════════════════════════════════════════════
+// ════════════════════════════════════════
 // 유틸
-// ══════════════════════════════════════════════
-function fmtW(n) {
-  if (!n) return '-';
-  const num = parseInt(n);
-  if (isNaN(num) || num === 0) return '-';
-  if (num >= 10000) {
-    const 억 = Math.floor(num / 10000), 만 = num % 10000;
-    return 만 > 0 ? 억 + '억 ' + 만.toLocaleString() + '만' : 억 + '억';
-  }
-  return num.toLocaleString() + '만';
+// ════════════════════════════════════════
+function toast(msg,isErr){
+  const el=document.getElementById('toastEl');
+  el.textContent=msg;
+  el.className='toast'+(isErr?' err':'')+' show';
+  setTimeout(()=>el.classList.remove('show'),2500);
 }
 
-function fmtR(n) {
-  const num = parseInt(n);
-  if (isNaN(num) || num === 0) return '-';
-  return fmtW(num * 100);
-}
-
-function toast(msg, isErr) {
-  const el = document.getElementById('toastEl');
-  el.textContent = msg;
-  el.className = 'toast' + (isErr ? ' err' : '') + ' show';
-  setTimeout(() => el.classList.remove('show'), 2500);
-}
-
-
-// ── 커스텀 Confirm ──────────────────────────────────
-function showConfirm(msg, okLabel, cancelLabel, onOk) {
-  const bg = document.getElementById('cfmBg');
-  document.getElementById('cfmMsg').textContent = msg;
-  document.getElementById('cfmOk').textContent = okLabel;
-  document.getElementById('cfmCancel').textContent = cancelLabel;
-  bg.style.display = 'flex';
-  document.getElementById('cfmOk').onclick = function() {
-    bg.style.display = 'none';
-    onOk();
-  };
-  document.getElementById('cfmCancel').onclick = function() {
-    bg.style.display = 'none';
-  };
-}
-
-// ══════════════════════════════════════════════
 // 초기화
-// ══════════════════════════════════════════════
-props = loadProps();
 updateStats();
+renderCustList();
+buildRegionSidebar();
+renderPropGrid();
 </script>
 </body>
 </html>
