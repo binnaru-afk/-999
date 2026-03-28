@@ -136,14 +136,22 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 .prop-wrap{flex:1;display:flex;overflow:hidden;}
 
 /* 지역 사이드바 */
-.region-sidebar{width:120px;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;}
+.region-sidebar{width:145px;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;}
 .rsb-head{padding:10px 10px 6px;font-size:10px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid var(--border);}
 .rsb-scroll{flex:1;overflow-y:auto;}
-.ri{padding:9px 10px;border-bottom:1px solid rgba(30,58,95,.4);cursor:pointer;transition:background .1s;}
+.ri{padding:8px 10px;border-bottom:1px solid rgba(30,58,95,.4);cursor:pointer;transition:background .1s;}
 .ri:hover{background:rgba(0,201,167,.07);}
 .ri.sel{background:rgba(0,201,167,.14);border-left:3px solid var(--teal);}
-.ri-name{font-size:12px;font-weight:700;margin-bottom:2px;}
+.ri.lv1{padding-left:10px;font-weight:700;}
+.ri.lv2{padding-left:18px;border-left:1px solid var(--border);}
+.ri.lv2.sel{border-left:3px solid var(--teal);}
+.ri.lv3{padding-left:26px;border-left:1px solid var(--border);}
+.ri.lv3.sel{border-left:3px solid var(--teal);}
+.ri-name{font-size:12px;font-weight:600;margin-bottom:1px;}
+.ri-name.bold{font-weight:900;}
 .ri-count{font-size:10px;color:var(--muted);}
+.ri-arrow{float:right;font-size:10px;color:var(--muted);transition:transform .2s;}
+.ri.open .ri-arrow{transform:rotate(90deg);}
 
 /* 매물 메인 영역 */
 .prop-main{flex:1;display:flex;flex-direction:column;overflow:hidden;}
@@ -608,7 +616,7 @@ const INIT_PROPS = [
 let nxtId = 300;
 let props = JSON.parse(localStorage.getItem(PROP_KEY) || 'null') || INIT_PROPS;
 let custs = JSON.parse(localStorage.getItem(CUST_KEY) || '[]');
-let selCust = null, cfFilter = '', selRegion = '', mapFilter = 'all';
+let selCust = null, cfFilter = '', sel = {sido:'',sigungu:'',dong:''}, mapFilter = 'all';
 let leafMap = null, markers = {}, activeId = null;
 
 function monthly(price, mort) {
@@ -869,33 +877,110 @@ function card(p, i, sec) {
 // ════════════════════════════════════════
 // 매물 관리
 // ════════════════════════════════════════
-function buildRegionSidebar() {
-  const regions = {};
-  props.forEach(p => {
-    const base = (p.region||'기타').split(' ')[0];
-    if(!regions[base]) regions[base]=[];
-    regions[base].push(p);
-  });
-  const order = ['인천','경기','서울','기타'];
-  const sorted = [...Object.keys(regions)].sort((a,b)=>{
-    const ai=order.indexOf(a), bi=order.indexOf(b);
-    return (ai<0?99:ai)-(bi<0?99:bi);
-  });
-  let html = `<div class="ri ${selRegion===''?'sel':''}" onclick="setRegion('')">
-    <div class="ri-name">전체</div><div class="ri-count">${props.length}건</div>
-  </div>`;
-  sorted.forEach(r => {
-    html += `<div class="ri ${selRegion===r?'sel':''}" onclick="setRegion('${r}')">
-      <div class="ri-name">${r}</div><div class="ri-count">${regions[r].length}건</div>
-    </div>`;
-  });
-  document.getElementById('regionList').innerHTML = html;
+// ── 지역 트리 파싱 ──
+// region: "인천 부평구", addr: "인천 부평구 부평동 ..." → dong 추출
+function parseLevels(p) {
+  const r = p.region || '';
+  const parts = r.split(' ');
+  const sido    = parts[0] || '기타';
+  const sigungu = parts[1] || '';
+  // dong: region에 없으면 addr에서 구 다음 단어
+  let dong = p.dong || '';
+  if (!dong && p.addr) {
+    const addrParts = p.addr.split(' ');
+    // "인천 부평구 갈산동 ..." 형태면 인덱스2가 동
+    const guIdx = addrParts.findIndex(w => w === sigungu);
+    if (guIdx >= 0 && addrParts[guIdx+1]) {
+      const next = addrParts[guIdx+1];
+      if (next.endsWith('동') || next.endsWith('읍') || next.endsWith('면') || next.endsWith('리')) {
+        dong = next;
+      }
+    }
+  }
+  return { sido, sigungu, dong };
 }
 
-function setRegion(r) {
-  selRegion = r;
-  buildRegionSidebar();
-  renderPropGrid();
+function buildRegionSidebar() {
+  // 트리 구조: sido → sigungu → dong → count
+  const tree = {};
+  props.forEach(p => {
+    const { sido, sigungu, dong } = parseLevels(p);
+    if (!tree[sido]) tree[sido] = { _cnt:0, subs:{} };
+    tree[sido]._cnt++;
+    const sg = sigungu || '(기타)';
+    if (!tree[sido].subs[sg]) tree[sido].subs[sg] = { _cnt:0, dongs:{} };
+    tree[sido].subs[sg]._cnt++;
+    if (dong) {
+      tree[sido].subs[sg].dongs[dong] = (tree[sido].subs[sg].dongs[dong]||0)+1;
+    }
+  });
+
+  const ORDER = ['인천','경기','서울','기타'];
+  const sidos = Object.keys(tree).sort((a,b)=>{
+    const ai=ORDER.indexOf(a), bi=ORDER.indexOf(b);
+    return (ai<0?99:ai)-(bi<0?99:bi);
+  });
+
+  let out = `<div class="ri lv1 ${!sel.sido?'sel':''}" onclick="clickSido('')">
+    <div class="ri-name bold">전체 <span class="ri-arrow"></span></div>
+    <div class="ri-count">${props.length}건</div>
+  </div>`;
+
+  sidos.forEach(sido => {
+    const sidoData = tree[sido];
+    const sidoOpen = sel.sido === sido;
+    out += `<div class="ri lv1 ${sidoOpen&&!sel.sigungu?'sel':''} ${sidoOpen?'open':''}" onclick="clickSido('${sido}')">
+      <div class="ri-name bold">${sido} <span class="ri-arrow">▶</span></div>
+      <div class="ri-count">${sidoData._cnt}건</div>
+    </div>`;
+
+    if (sidoOpen) {
+      const sgsorted = Object.keys(sidoData.subs).sort((a,b)=>sidoData.subs[b]._cnt-sidoData.subs[a]._cnt);
+      sgsorted.forEach(sg => {
+        const sgData = sidoData.subs[sg];
+        const sgOpen = sel.sigungu === sg;
+        out += `<div class="ri lv2 ${sidoOpen&&sgOpen&&!sel.dong?'sel':''} ${sgOpen?'open':''}" onclick="clickSigungu('${sg}')">
+          <div class="ri-name">${sg} <span class="ri-arrow">${Object.keys(sgData.dongs).length>0?'▶':''}</span></div>
+          <div class="ri-count">${sgData._cnt}건</div>
+        </div>`;
+
+        if (sgOpen && Object.keys(sgData.dongs).length > 0) {
+          const dongs = Object.keys(sgData.dongs).sort((a,b)=>sgData.dongs[b]-sgData.dongs[a]);
+          dongs.forEach(dong => {
+            out += `<div class="ri lv3 ${sel.dong===dong?'sel':''}" onclick="clickDong('${dong}')">
+              <div class="ri-name" style="font-size:11px">${dong}</div>
+              <div class="ri-count">${sgData.dongs[dong]}건</div>
+            </div>`;
+          });
+        }
+      });
+    }
+  });
+
+  document.getElementById('regionList').innerHTML = out;
+}
+
+function clickSido(sido) {
+  if (sel.sido === sido && sido !== '') {
+    sel = { sido:'', sigungu:'', dong:'' };
+  } else {
+    sel = { sido, sigungu:'', dong:'' };
+  }
+  buildRegionSidebar(); renderPropGrid();
+}
+
+function clickSigungu(sg) {
+  if (sel.sigungu === sg) {
+    sel = { sido: sel.sido, sigungu:'', dong:'' };
+  } else {
+    sel = { sido: sel.sido, sigungu: sg, dong:'' };
+  }
+  buildRegionSidebar(); renderPropGrid();
+}
+
+function clickDong(dong) {
+  sel.dong = sel.dong === dong ? '' : dong;
+  buildRegionSidebar(); renderPropGrid();
 }
 
 function renderPropGrid() {
@@ -903,7 +988,13 @@ function renderPropGrid() {
   const kw    = document.getElementById('flKw').value.toLowerCase();
   const f = props.filter(p => {
     const addr = (p.addr||p.region||'').toLowerCase();
-    if(selRegion && !p.region.startsWith(selRegion)) return false;
+    // 3단계 드릴다운 필터
+    if(sel.sido) {
+      const { sido, sigungu, dong } = parseLevels(p);
+      if(sido !== sel.sido) return false;
+      if(sel.sigungu && sigungu !== sel.sigungu) return false;
+      if(sel.dong && dong !== sel.dong) return false;
+    }
     if(filt==='zero'  && p.mortgage!==0) return false;
     if(filt==='low'   && (p.mortgage===0||p.mortgage>2000)) return false;
     if(filt==='tax'   && p.tax!=='O') return false;
@@ -949,6 +1040,7 @@ function openPropForm(id) {
   document.getElementById('pfRegion').value = p?.region||'';
   document.getElementById('pfName').value = p?.name||'';
   document.getElementById('pfAddr').value = p?.addr||'';
+  document.getElementById('pfDong').value = p?.dong||'';
   document.getElementById('pfType').value = p?.type||'쓰리룸';
   document.getElementById('pfPrice').value = p?.price||'';
   document.getElementById('pfMort').value = p?.mortgage||'';
@@ -997,6 +1089,7 @@ function saveProp() {
     id: editId ? parseInt(editId) : nxtId++,
     region, addr: document.getElementById('pfAddr').value,
     name, type: document.getElementById('pfType').value,
+    dong: document.getElementById('pfDong').value.trim(),
     price, mortgage: parseInt(document.getElementById('pfMort').value)||0,
     tax: document.getElementById('pfTax').value,
     r: parseInt(document.getElementById('pfR').value)||0,
